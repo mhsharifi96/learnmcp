@@ -109,12 +109,22 @@ print_urls() {
 }
 
 # ------------------------------------------------------------------ commands
+cmd_nginx_conf() {
+  require_env
+  local domain port
+  domain="$(get_env DOMAIN)"; port="$(get_env WEB_PORT)"; port="${port:-8000}"
+  [ -n "$domain" ] || die "DOMAIN is not set in $ENV_FILE."
+  sed -e "s/__DOMAIN__/${domain}/g" -e "s/__PORT__/${port}/g" docker/nginx-host.conf
+}
+
 cmd_init() {
-  local domain="" local_mode=false force=false
+  local domain="" local_mode=false force=false external_proxy=false port=""
   while [ $# -gt 0 ]; do
     case "$1" in
       --domain) domain="${2:-}"; shift 2 ;;
       --local) local_mode=true; shift ;;
+      --external-proxy) external_proxy=true; shift ;;
+      --port) port="${2:-}"; shift 2 ;;
       --force) force=true; shift ;;
       *) die "Unknown option for init: $1" ;;
     esac
@@ -147,10 +157,19 @@ cmd_init() {
     set_env DJANGO_CSRF_TRUSTED_ORIGINS "https://${domain}"
     set_env PUBLIC_BASE_URL "https://${domain}"
     set_env DJANGO_SECURE_COOKIES "true"
-    set_env COMPOSE_PROFILES "https"
     set_env DOMAIN "$domain"
-    ok "Created $ENV_FILE for https://${domain} (Caddy will fetch a Let's Encrypt certificate)."
-    warn "Make sure DNS for ${domain} points at this server and ports 80/443 are open."
+    if [ "$external_proxy" = true ]; then
+      # An existing reverse proxy (e.g. host nginx) terminates TLS and forwards to 127.0.0.1:PORT.
+      set_env COMPOSE_PROFILES ""
+      set_env WEB_BIND "127.0.0.1"
+      [ -n "$port" ] && set_env WEB_PORT "$port"
+      ok "Created $ENV_FILE for https://${domain} behind an existing proxy on 127.0.0.1:${port:-8000}."
+      echo "   Generate the nginx site with: ./deploy.sh nginx-conf > /tmp/${domain}.conf"
+    else
+      set_env COMPOSE_PROFILES "https"
+      ok "Created $ENV_FILE for https://${domain} (Caddy will fetch a Let's Encrypt certificate)."
+      warn "Make sure DNS for ${domain} points at this server and ports 80/443 are open."
+    fi
   fi
   echo "   Review $ENV_FILE, then run: ./deploy.sh deploy"
 }
@@ -254,6 +273,9 @@ learnmcp deploy helper
 
 Setup
   init --domain DOMAIN      Create .env with random secrets for https://DOMAIN (Caddy + Let's Encrypt)
+  init --domain DOMAIN --external-proxy [--port N]
+                            Same, but behind an existing reverse proxy (host nginx) on 127.0.0.1:N
+  nginx-conf                Print a host-nginx site for DOMAIN -> 127.0.0.1:WEB_PORT
   init --local              Create .env for local http://localhost:8000 (no Caddy)
                             add --force to overwrite an existing .env
 
@@ -280,6 +302,7 @@ main() {
   local cmd="${1:-help}"; shift || true
   case "$cmd" in
     init) cmd_init "$@" ;;
+    nginx-conf) cmd_nginx_conf ;;
     deploy) cmd_deploy "$@" ;;
     rollback) cmd_rollback ;;
     up) require_docker; require_env; validate_env; compose up -d && wait_healthy && print_urls ;;
