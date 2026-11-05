@@ -225,7 +225,7 @@ PACK_TEXT = {
         "review": "سؤال‌های بی‌پاسخ یا غلط", "your": "پاسخ شما", "right": "پاسخ درست",
         "needs_review": "سؤال تشریحی؛ مدرس بررسی می‌کند", "copy": "این متن را در چت هوش مصنوعی بچسبانید تا اشتباه‌ها را توضیح دهد:",
         "paste_title": "ارسال نتیجه", "paste_lead": "متنی را که هوش مصنوعی ساخت (JSON) اینجا بچسبانید و ارسال کنید.",
-        "send": "ارسال", "error": "خطا", "lesson_sent": "بازخورد درس ارسال شد ✓", "close": "می‌توانید این صفحه را ببندید و به چت برگردید.",
+        "send": "ارسال", "error": "خطا", "lesson_sent": "بازخورد درس ثبت شد", "close": "می‌توانید این صفحه را ببندید و به چت برگردید.",
     },
     "en": {
         "dir": "ltr", "title": "Result for your instructor", "sent": "Sent ✓ Your instructor can see the result.",
@@ -233,7 +233,7 @@ PACK_TEXT = {
         "review": "Questions to review", "your": "Your answer", "right": "Correct answer",
         "needs_review": "Free-text answer; your instructor will review it", "copy": "Paste this into your AI chat to go over your mistakes:",
         "paste_title": "Send a result", "paste_lead": "Paste the text your AI made (JSON) here and send it.",
-        "send": "Send", "error": "Error", "lesson_sent": "Lesson feedback sent ✓", "close": "You can close this page and go back to the chat.",
+        "send": "Send", "error": "Error", "lesson_sent": "Lesson feedback recorded", "close": "You can close this page and go back to the chat.",
     },
 }
 

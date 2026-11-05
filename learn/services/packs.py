@@ -33,6 +33,7 @@ CLIENT_PROMPT = "prompt"
 
 KIND_LESSON = PackSubmission.LESSON
 KIND_QUIZ = PackSubmission.QUIZ
+KIND_UNIT = PackSubmission.UNIT
 
 TEXT = {
     "fa": {
@@ -88,7 +89,7 @@ def read_key(key: str) -> tuple[Enrollment, dict]:
     )
     if enrollment is None or payload.get("t") != _fingerprint(enrollment):
         raise ServiceError("This prompt no longer works (you left the class or made a new link). Copy a fresh one.")
-    if payload.get("k") not in (KIND_LESSON, KIND_QUIZ):
+    if payload.get("k") not in (KIND_LESSON, KIND_QUIZ, KIND_UNIT):
         raise ServiceError("This link is not valid.")
     return enrollment, payload
 
@@ -115,8 +116,7 @@ def _send_box(url: str, t: dict) -> str:
 </div></body></html>"""
 
 
-def quiz_form_html(quiz, questions: list[Question], url: str, t: dict) -> str:
-    """The whole instructor-written quiz as one clickable HTML form. No correct answers inside."""
+def _question_blocks(questions: list[Question], t: dict) -> str:
     blocks = []
     for n, q in enumerate(questions, start=1):
         name = f"a{q.id}"
@@ -138,15 +138,45 @@ def quiz_form_html(quiz, questions: list[Question], url: str, t: dict) -> str:
             f'<div style="font-size:12px;color:#64748b">{n}/{len(questions)} · {kind}</div>'
             f'<p dir="auto" style="font-weight:600;white-space:pre-wrap">{escape(q.prompt)}</p>{opts}</div>'
         )
-    return f"""<!doctype html>
-<html dir="{t['dir']}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
-<body style="font-family:system-ui,sans-serif;margin:0;padding:16px;background:#f8fafc">
+    return "".join(blocks)
+
+
+_HEAD = """<!doctype html>
+<html dir="{dir}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+<body style="font-family:system-ui,sans-serif;margin:0;padding:16px;background:#f8fafc">"""
+_BUTTON = (
+    '<button type="submit" style="width:100%;padding:14px;font-size:16px;border:0;border-radius:12px;'
+    'background:#0f766e;color:#fff;cursor:pointer">{label}</button>'
+)
+
+
+def quiz_form_html(quiz, questions: list[Question], url: str, t: dict) -> str:
+    """The whole instructor-written quiz as one clickable HTML form. No correct answers inside."""
+    return f"""{_HEAD.format(dir=t['dir'])}
 <form method="post" action="{url}" target="_blank" style="max-width:640px;margin:auto">
 <h2 dir="auto" style="margin:0 0 4px">{escape(quiz.title)}</h2>
 <p style="font-size:13px;color:#64748b;margin:0">{t['note']}</p>
-{''.join(blocks)}
-<button type="submit" style="width:100%;padding:14px;font-size:16px;border:0;border-radius:12px;background:#0f766e;color:#fff;cursor:pointer">{t['send']}</button>
+{_question_blocks(questions, t)}
+{_BUTTON.format(label=t['send'])}
 <p style="font-size:13px;color:#64748b">{t['form_fallback']}</p>
+</form></body></html>"""
+
+
+def unit_form_html(lesson, manual: list[tuple], url: str, t: dict) -> str:
+    """The single end-of-lesson page: the AI's JSON result plus the instructor's quiz questions, one button."""
+    sections = "".join(
+        f'<h3 dir="auto" style="margin:22px 0 0">{t["quiz_send_title"]}: {escape(quiz.title)}</h3>'
+        f'<p style="font-size:13px;color:#64748b;margin:0">{t["note"]}</p>{_question_blocks(questions, t)}'
+        for quiz, questions in manual
+    )
+    return f"""{_HEAD.format(dir=t['dir'])}
+<form method="post" action="{url}" target="_blank" style="max-width:640px;margin:auto">
+<h2 dir="auto" style="margin:0 0 8px">{escape(lesson.title)}</h2>
+{sections}
+<h3 style="margin:22px 0 6px">{t['send_title']}</h3>
+<textarea name="d" rows="6" readonly dir="ltr" style="width:100%;box-sizing:border-box;font:12px monospace;margin-bottom:10px">RESULT_JSON</textarea>
+{_BUTTON.format(label=t['send'])}
+<p style="font-size:13px;color:#64748b">{t['fallback']}<br><a href="{url}" target="_blank" dir="ltr">{url[:60]}…</a></p>
 </form></body></html>"""
 
 
@@ -193,25 +223,100 @@ def _send_rules(url: str, t: dict, json_shape: str) -> str:
 ```"""
 
 
+AI_ITEMS_SHAPE = (
+    '{"items": [{"q": "<the exact question you asked>", "options": [<option texts, empty for short answer>], '
+    '"correct": "<correct answer>", "answer": "<my reply, unchanged>", "ok": <true|false>, '
+    '"explanation": "<one line>", "concept": "<concept tested>"}, ...], '
+    '"summary": "<2-4 sentences for my instructor: how it went and what I misunderstood>", '
+    '"weak_concepts": [<concepts to review>]}'
+)
+
+
 def lesson_prompt(enrollment, lesson_id: int, base_url: str) -> str:
+    """One prompt for a lesson AND its quizzes, with one send at the very end."""
     lesson = get_accessible_lesson(enrollment, lesson_id)
     target = enrollment_for_course(enrollment, lesson.course_id)
     t = _t(target)
-    url = submit_url(base_url, make_key(target, KIND_LESSON, lesson.id))
+    url = submit_url(base_url, make_key(target, KIND_UNIT, lesson.id))
     events.record(target, Event.LESSON_STARTED, lesson=lesson, client=CLIENT_PROMPT)
     plan = BRIEF_RULES if not lesson.content.strip() else ""
-    shape = (
-        '{"understood": <1-5, how well I understood the lesson, judged from my answers>, '
-        '"difficult": [<concepts I struggled with>], "summary": "<2-3 sentences for my instructor: '
-        'what we covered and where I had trouble>", "app": "<your app name: gemini, chatgpt, deepseek, claude…>"}'
+
+    ai_quizzes, manual = [], []
+    for quiz in lesson.quizzes.order_by("id"):
+        if quiz.is_ai:
+            ai_quizzes.append(quiz)
+        else:
+            questions = list(quiz.manual_questions().order_by("order", "id"))
+            if questions:
+                manual.append((quiz, questions))
+
+    steps = [
+        "STEP 1 — LESSON. Teach the lesson below conversationally, one idea at a time. Check my understanding "
+        "with short questions and wait for my reply each time. Stay within the lesson. If I don't understand "
+        "something, explain it another way and remember it as a difficult concept. Move on when we have "
+        "covered it or I say I'm ready."
+    ]
+    if ai_quizzes:
+        listing = "\n".join(
+            f'- quiz_id {q.id}, "{q.title}", exactly {q.ai_question_count} questions. Instructor\'s prompt: {q.prompt.strip()}'
+            for q in ai_quizzes
+        )
+        steps.append(
+            "STEP 2 — QUIZ IN THE CHAT. Write the questions yourself from the instructor's prompt "
+            "(multiple choice with options A, B, C… or short answer). Ask ONE question at a time, then stop and wait. "
+            "Never answer for me or hint. Judge each reply fairly, tell me the result with a one-line explanation, "
+            "then ask the next one. After the last question give me my score and go over my mistakes.\n" + listing
+        )
+    if manual:
+        names = ", ".join(f'"{q.title}"' for q, _ in manual)
+        steps.append(
+            f"QUIZ IN THE PAGE. The page at the end also contains my instructor's quiz {names}. I answer it there "
+            "by clicking; the server grades it. You do not know its answers: never answer, hint or discuss those "
+            "questions before I send the page."
+        )
+    steps.append(
+        "LAST STEP — SEND. Ask me in one line how well I understood the lesson (1-5). Then show me the HTML page "
+        "below, rendered as an artifact / canvas / HTML preview so I can click and press the send button. "
+        "Replace RESULT_JSON with the JSON and change nothing else. Send nothing before this step and never invent my answers."
     )
+
+    quizzes_shape = ", ".join(f'"{q.id}": {AI_ITEMS_SHAPE}' for q in ai_quizzes)
+    shape = (
+        '{"understood": <1-5>, "difficult": [<concepts I struggled with>], '
+        '"summary": "<2-3 sentences for my instructor: what we covered and where I had trouble>", '
+        + (f'"quizzes": {{{quizzes_shape}}}, ' if ai_quizzes else "")
+        + ('"manual": {"<quiz_id>": [<my answers, only if you could not show the page>]}, ' if manual else "")
+        + '"app": "<your app name: gemini, chatgpt, deepseek, claude…>"}'
+    )
+    manual_ids = "; ".join(
+        f"quiz_id {q.id}: " + " | ".join(
+            f"Q{n}. {x.prompt}"
+            + ("" if x.type != Question.MCQ else " (" + ", ".join(f"{grading.option_letter(i)}) {o}" for i, o in enumerate(x.options_json)) + ")")
+            for n, x in enumerate(qs, start=1)
+        )
+        for q, qs in manual
+    )
+    fallback = (
+        f"If you cannot display HTML: "
+        + (f"ask me the page's quiz questions in the chat one at a time without judging them ({manual_ids}) and put my answers "
+           "(option letters for multiple choice) in \"manual\". " if manual else "")
+        + f"Then give me ONE clickable link that carries the result, made exactly like {url}?d=<the JSON, URL-encoded>. "
+        f"Under it, also print the JSON in a code block and tell me: if the link doesn't send it, open {url} and paste the JSON there."
+    )
+    page = unit_form_html(lesson, manual, url, t) if manual else _send_box(url, t)
     return f"""{_header(target, t)}
 
-TASK: teach me this lesson.
-{plan}Teach it conversationally, one idea at a time. Check my understanding with short questions and wait for my reply each time. Stay within the lesson. If I don't understand something, explain it another way and remember it as a difficult concept.
-When we have covered the lesson (or I say I'm done), ask me in one line how well I understood it, then send the result.
+TASK: teach me this lesson{" and then quiz me" if ai_quizzes or manual else ""}. Everything is sent to my instructor ONCE, at the very end.
 
-{_send_rules(url, t, shape)}
+{chr(10).join(s_ + chr(10) for s_ in steps)}
+RESULT JSON (exactly this shape):
+{shape}
+
+{fallback}
+
+```html
+{page}
+```
 
 {_lesson_block(lesson)}
 """
@@ -337,18 +442,23 @@ def submit(key: str, data: dict, *, origin: str = "") -> dict:
     """Record one prompt result. Returns what the result page shows."""
     enrollment, payload = read_key(key)
     nonce = payload["n"]
-    existing = PackSubmission.objects.filter(nonce=nonce).select_related("attempt", "event").first()
+    existing = PackSubmission.objects.filter(nonce=nonce).select_related("lesson", "event__lesson").first()
     if existing:
         return _result(existing, already=True)
     client = client_label(data.get("app", ""), origin)
     try:
         with transaction.atomic():
             sub = PackSubmission.objects.create(nonce=nonce, enrollment=enrollment, kind=payload["k"])
-            if payload["k"] == KIND_LESSON:
+            if payload["k"] == KIND_UNIT:
+                sub.lesson_id = payload["i"]
+                sub.event, attempts = _submit_unit(enrollment, payload["i"], data, client)
+                sub.attempt_ids = [a.id for a in attempts]
+            elif payload["k"] == KIND_LESSON:
                 sub.event = _submit_lesson(enrollment, payload["i"], data, client)
             else:
                 sub.attempt = _submit_quiz(enrollment, payload["i"], data, client)
-            sub.save(update_fields=["event", "attempt"])
+                sub.attempt_ids = [sub.attempt.id]
+            sub.save(update_fields=["event", "attempt", "attempt_ids", "lesson"])
     except IntegrityError:
         # Double click: the first request won.
         return _result(PackSubmission.objects.get(nonce=nonce), already=True)
@@ -464,33 +574,80 @@ def _submit_quiz(enrollment, quiz_id: int, data: dict, client: str) -> QuizAttem
     return attempt
 
 
+def _submit_unit(enrollment, lesson_id: int, data: dict, client: str) -> tuple[Event | None, list[QuizAttempt]]:
+    """A lesson and its quizzes, sent together at the end. Parts the student skipped are left out."""
+    lesson = get_accessible_lesson(enrollment, lesson_id)
+    event = None
+    if any(data.get(k) for k in ("understood", "difficult", "summary", "note")):
+        event = _submit_lesson(enrollment, lesson.id, data, client)
+    ai_data = data.get("quizzes") if isinstance(data.get("quizzes"), dict) else {}
+    manual_data = data.get("manual") if isinstance(data.get("manual"), dict) else {}
+    lesson_quizzes = list(lesson.quizzes.filter(course=enrollment.course).order_by("id"))
+    ai_quizzes = [q for q in lesson_quizzes if q.is_ai]
+    attempts = []
+    for quiz in lesson_quizzes:
+        if quiz.is_ai:
+            part = ai_data.get(str(quiz.id))
+            if part is None and len(ai_quizzes) == 1 and len(ai_data) == 1:
+                part = next(iter(ai_data.values()))  # the AI used another key for the only quiz
+            if isinstance(part, dict) and isinstance(part.get("items"), list) and part["items"]:
+                attempts.append(_submit_quiz(enrollment, quiz.id, part, client))
+        else:
+            part = {k: v for k, v in data.items() if isinstance(k, str) and k[:1] == "a" and k[1:].isdigit()}
+            if isinstance(manual_data.get(str(quiz.id)), list):
+                part["answers"] = manual_data[str(quiz.id)]
+            questions = list(quiz.manual_questions().order_by("order", "id"))
+            if any(_manual_answers(part, questions).values()):
+                attempts.append(_submit_quiz(enrollment, quiz.id, part, client))
+    if event is None and not attempts:
+        raise ServiceError("Nothing was sent. Answer the questions or finish the lesson, then press the button.")
+    return event, attempts
+
+
+def _attempt_result(attempt: QuizAttempt) -> dict:
+    statuses = list(attempt.answers.values_list("status", flat=True))
+    return {
+        "title": attempt.quiz.title,
+        "ai_generated": attempt.quiz.is_ai,
+        "score_percent": attempt.score_percent,
+        "correct": statuses.count(Answer.CORRECT),
+        "needs_review": statuses.count(Answer.NEEDS_REVIEW),
+        "total": attempt.quiz.ai_question_count if attempt.quiz.is_ai else len(statuses),
+        "mistakes": quizzes.mistakes(attempt),
+    }
+
+
 def _result(sub: PackSubmission, *, already: bool) -> dict:
-    out = {"kind": sub.kind, "already": already, "lang": sub.enrollment.student.lang}
-    if sub.kind == KIND_QUIZ and sub.attempt_id:
-        attempt = QuizAttempt.objects.select_related("quiz").get(pk=sub.attempt_id)
-        statuses = list(attempt.answers.values_list("status", flat=True))
-        out.update(
-            title=attempt.quiz.title,
-            ai_generated=attempt.quiz.is_ai,
-            score_percent=attempt.score_percent,
-            correct=statuses.count(Answer.CORRECT),
-            needs_review=statuses.count(Answer.NEEDS_REVIEW),
-            total=attempt.quiz.ai_question_count if attempt.quiz.is_ai else len(statuses),
-            mistakes=quizzes.mistakes(attempt),
-        )
-    elif sub.event_id:
-        out["title"] = sub.event.lesson.title if sub.event and sub.event.lesson else ""
-    return out
+    ids = list(sub.attempt_ids or []) or ([sub.attempt_id] if sub.attempt_id else [])
+    attempts = QuizAttempt.objects.select_related("quiz").filter(pk__in=ids).order_by("id")
+    results = [_attempt_result(a) for a in attempts]
+    if sub.lesson_id and sub.lesson:
+        title = sub.lesson.title
+    elif sub.event_id and sub.event and sub.event.lesson:
+        title = sub.event.lesson.title
+    else:
+        title = results[0]["title"] if results else ""
+    return {
+        "kind": sub.kind,
+        "already": already,
+        "lang": sub.enrollment.student.lang,
+        "title": title,
+        "lesson_sent": sub.event_id is not None,
+        "quizzes": results,
+        "has_mistakes": any(r["mistakes"] for r in results),
+    }
 
 
 def review_text(result: dict) -> str:
     """Text the student can paste back into the AI chat to go over their mistakes."""
-    if result.get("kind") != KIND_QUIZ or not result.get("mistakes"):
-        return ""
-    lines = [f'My result for "{result["title"]}": {result["correct"]}/{result["total"]} correct. Please explain my mistakes:']
-    for m in result["mistakes"]:
-        lines.append(
-            f'- Q{m["number"]}: {m["question"]} | my answer: {m["student_answer"]} | correct: {m["correct_answer"]}'
-            + (f' | {m["explanation"]}' if m["explanation"] else "")
-        )
+    lines = []
+    for r in result.get("quizzes", []):
+        if not r["mistakes"]:
+            continue
+        lines.append(f'My result for "{r["title"]}": {r["correct"]}/{r["total"]} correct. Please explain my mistakes:')
+        for m in r["mistakes"]:
+            lines.append(
+                f'- Q{m["number"]}: {m["question"]} | my answer: {m["student_answer"]} | correct: {m["correct_answer"]}'
+                + (f' | {m["explanation"]}' if m["explanation"] else "")
+            )
     return "\n".join(lines)

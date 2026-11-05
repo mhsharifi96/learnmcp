@@ -75,7 +75,7 @@ def test_ai_quiz_json(client, enrolled, course_setup):
     }
     r = client.post(f"/r/{key}?format=json", {"d": json.dumps(data)})
     assert r.status_code == 200 and r["Access-Control-Allow-Origin"] == "*"
-    body = r.json()
+    body = r.json()["quizzes"][0]
     assert body["score_percent"] == 50 and body["total"] == 2
     attempt = QuizAttempt.objects.get()
     assert attempt.generated_questions.count() == 2
@@ -129,3 +129,49 @@ def test_study_api(client, course_setup):
     assert [l["title"] for l in data["course"]["lessons"]] == ["Variables", "Loops"]
     r = post(client, f"/api/enrollments/{enr_id}/prompt", {"quiz_id": course_setup[3].id})
     assert r.status_code == 200 and "/r/" in r.json()["prompt"]
+
+
+def test_lesson_and_quizzes_in_one_send(client, enrolled, course_setup):
+    """One prompt per lesson: lesson feedback, the AI quiz and the instructor's quiz arrive in one POST."""
+    enrollment, _ = enrolled
+    lesson, manual = course_setup[1], course_setup[3]
+    ai = Quiz.objects.create(
+        course=lesson.course, lesson=lesson, title="AI check", mode=Quiz.AI, prompt="1 question", ai_question_count=1
+    )
+    prompt = packs.lesson_prompt(enrollment, lesson.id, BASE)
+    assert "Type of 3.5?" in prompt and 'type="radio"' in prompt  # instructor quiz inside the final page
+    assert f"quiz_id {ai.id}" in prompt and "Decimals are floats" not in prompt
+    assert prompt.count("RESULT_JSON") >= 1
+    key = _key(prompt)
+    q_mcq = manual.questions.get(order=1)
+    d = {
+        "understood": 4,
+        "summary": "Fine.",
+        "quizzes": {str(ai.id): {"items": [{"q": "x?", "answer": "y", "correct": "z", "ok": False}]}},
+        "app": "chatgpt",
+    }
+    r = client.post(f"/r/{key}", {"d": json.dumps(d), f"a{q_mcq.id}": "B"})
+    assert r.status_code == 200, r.content.decode()[:500]
+    sub = PackSubmission.objects.get()
+    assert sub.kind == "unit" and len(sub.attempt_ids) == 2 and sub.event is not None
+    scores = dict(QuizAttempt.objects.values_list("quiz_id", "score"))
+    assert scores == {ai.id: 0.0, manual.id: 0.5}
+    html = r.content.decode()
+    assert "AI check" in html and "Variables quiz" in html
+
+
+def test_lesson_send_with_only_manual_answers_in_json(client, enrolled, course_setup):
+    enrollment, _ = enrolled
+    lesson, manual = course_setup[1], course_setup[3]
+    key = _key(packs.lesson_prompt(enrollment, lesson.id, BASE))
+    r = client.get(f"/r/{key}", {"d": json.dumps({"manual": {str(manual.id): ["B", "type"]}})})
+    assert r.status_code == 200
+    assert QuizAttempt.objects.get().score == 1.0
+    assert not Event.objects.filter(type=Event.LESSON_FEEDBACK).exists()
+
+
+def test_lesson_send_empty_is_rejected(client, enrolled, course_setup):
+    enrollment, _ = enrolled
+    key = _key(packs.lesson_prompt(enrollment, course_setup[1].id, BASE))
+    r = client.post(f"/r/{key}", {"d": "{}"})
+    assert r.status_code == 400 and not PackSubmission.objects.exists()

@@ -366,12 +366,15 @@ class PackSubmission(models.Model):
 
     LESSON = "lesson"
     QUIZ = "quiz"
-    KIND_CHOICES = [(LESSON, "Lesson"), (QUIZ, "Quiz")]
+    UNIT = "unit"
+    KIND_CHOICES = [(LESSON, "Lesson"), (QUIZ, "Quiz"), (UNIT, "Lesson and its quizzes")]
 
     nonce = models.CharField(max_length=32, unique=True)
     enrollment = models.ForeignKey(Enrollment, on_delete=models.CASCADE, related_name="pack_submissions")
     kind = models.CharField(max_length=10, choices=KIND_CHOICES)
+    lesson = models.ForeignKey(Lesson, on_delete=models.SET_NULL, null=True, blank=True, related_name="+")
     attempt = models.ForeignKey(QuizAttempt, on_delete=models.SET_NULL, null=True, blank=True, related_name="+")
+    attempt_ids = models.JSONField(default=list, blank=True, help_text="Quiz attempts created by this submission.")
     event = models.ForeignKey(Event, on_delete=models.SET_NULL, null=True, blank=True, related_name="+")
     created_at = models.DateTimeField(auto_now_add=True)
 

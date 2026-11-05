@@ -77,8 +77,8 @@ const en = {
   },
   study: {
     title: "Study with any AI", lead: "For AI apps without connectors (free Gemini, ChatGPT, DeepSeek, Copilot…). Copy a prompt, paste it into a new chat, and press the send button your AI shows at the end. Only that one result is sent to your instructor.",
-    steps: ["Press “Copy lesson prompt” to study a lesson, or “Copy quiz prompt” to take its quiz.", "Paste it into a new chat in any AI app.", "Study or answer. At the end your AI shows a box with a “Send to my instructor” button.", "Press it. A new tab shows your result. If the button doesn't work, copy the text from the box and paste it on the page the link opens."],
-    lessons: "Lessons", quizzes: "Quizzes", classQuizzes: "Class quizzes", copyLesson: "Copy lesson prompt", copyQuiz: "Copy quiz prompt", quizLabel: "Quiz", copied: "Copied. Paste it into a new chat.",
+    steps: ["Press “Copy prompt” for a lesson. One prompt covers the lesson and its quiz.", "Paste it into a new chat in any AI app.", "Study the lesson and take the quiz. At the end your AI shows one page with a “Send to my instructor” button.", "Press it. A new tab shows your result. If the button doesn't work, copy the text from the box and paste it on the page the link opens."],
+    lessons: "Lessons", quizzes: "Quizzes", classQuizzes: "Class quizzes", copyLesson: "Copy lesson prompt", copyLessonQuiz: "Copy prompt (lesson + quiz)", copyQuiz: "Copy quiz prompt", quizLabel: "Quiz", copied: "Copied. Paste it into a new chat.",
     aiQuiz: "AI writes the questions", questions: (n: number) => `${n} question${n === 1 ? "" : "s"}`, best: "best", empty: "No lessons yet.",
     oneUse: "Each copied prompt works once and for 30 days. Copy a new one to retake a quiz.",
     open: "Study with any AI (no connector)",
@@ -263,8 +263,8 @@ const fa: Dict = {
   },
   study: {
     title: "درس خواندن با هر هوش مصنوعی", lead: "برای اپ‌هایی که connector ندارند (نسخهٔ رایگان Gemini، ChatGPT، DeepSeek، Copilot و…). یک پرامپت کپی کنید، در یک چت جدید بچسبانید و آخر کار دکمهٔ ارسالی را که هوش مصنوعی نشان می‌دهد بزنید. فقط همان یک نتیجه برای مدرس فرستاده می‌شود.",
-    steps: ["برای خواندن درس «کپی پرامپت درس» و برای آزمون همان درس «کپی پرامپت آزمون» را بزنید.", "آن را در یک چت جدید در هر اپ هوش مصنوعی بچسبانید.", "درس بخوانید یا جواب بدهید. آخر کار هوش مصنوعی یک باکس با دکمهٔ «ارسال برای مدرس» نشان می‌دهد.", "دکمه را بزنید؛ نتیجه در تب جدید باز می‌شود. اگر دکمه کار نکرد، متن داخل باکس را کپی کنید و در صفحه‌ای که لینکش آنجاست بچسبانید."],
-    lessons: "درس‌ها", quizzes: "آزمون‌ها", classQuizzes: "آزمون‌های کلاس", copyLesson: "کپی پرامپت درس", copyQuiz: "کپی پرامپت آزمون", quizLabel: "آزمون", copied: "کپی شد. در یک چت جدید بچسبانید.",
+    steps: ["برای هر درس «کپی پرامپت» را بزنید. یک پرامپت هم درس را می‌دهد و هم آزمونش را.", "آن را در یک چت جدید در هر اپ هوش مصنوعی بچسبانید.", "درس را بخوانید و به آزمون جواب بدهید. آخر کار هوش مصنوعی یک صفحه با دکمهٔ «ارسال برای مدرس» نشان می‌دهد.", "دکمه را بزنید؛ نتیجه در تب جدید باز می‌شود. اگر دکمه کار نکرد، متن داخل باکس را کپی کنید و در صفحه‌ای که لینکش آنجاست بچسبانید."],
+    lessons: "درس‌ها", quizzes: "آزمون‌ها", classQuizzes: "آزمون‌های کلاس", copyLesson: "کپی پرامپت درس", copyLessonQuiz: "کپی پرامپت (درس + آزمون)", copyQuiz: "کپی پرامپت آزمون", quizLabel: "آزمون", copied: "کپی شد. در یک چت جدید بچسبانید.",
     aiQuiz: "سؤال‌ها را هوش مصنوعی می‌سازد", questions: (n: number) => `${n} سؤال`, best: "بهترین", empty: "هنوز درسی نیست.",
     oneUse: "هر پرامپت کپی‌شده یک بار و تا ۳۰ روز کار می‌کند. برای آزمون دوباره، پرامپت جدید کپی کنید.",
     open: "درس خواندن با هر هوش مصنوعی (بدون connector)",

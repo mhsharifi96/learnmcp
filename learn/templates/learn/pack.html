@@ -12,7 +12,7 @@
     body { margin:0; padding:24px 16px 64px; font:16px/1.6 system-ui, Tahoma, sans-serif; background:var(--bg); color:var(--text); }
     main { max-width:640px; margin:0 auto; }
     .card { background:var(--card); border:1px solid var(--border); border-radius:14px; padding:20px; margin-bottom:16px; }
-    h1 { font-size:1.4rem; margin:0 0 .5rem; }
+    h1 { font-size:1.4rem; margin:0 0 .5rem; } h2 { font-size:1.1rem; margin:1rem 0 0; }
     .muted { color:var(--muted); }
     .ok { color:var(--ok); font-weight:700; } .bad { color:var(--bad); } .warn { color:var(--warn); }
     .score { font-size:2.4rem; font-weight:800; color:var(--accent); }
@@ -25,33 +25,40 @@
 {% if result %}
   <div class="card">
     <h1>{% if result.title %}{{ result.title }}{% else %}{{ t.title }}{% endif %}</h1>
-    <p class="ok">{% if result.already %}{{ t.already }}{% elif result.kind == "lesson" %}{{ t.lesson_sent }}{% else %}{{ t.sent }}{% endif %}</p>
-    {% if result.kind == "quiz" %}
-      <p><span class="score" dir="ltr">{{ result.score_percent }}%</span>
-        <span class="muted" dir="ltr">({{ result.correct }}/{{ result.total }})</span> {{ t.correct }}</p>
-      {% if result.needs_review %}<p class="warn">{{ result.needs_review }} × {{ t.needs_review }}</p>{% endif %}
-    {% endif %}
+    <p class="ok">{% if result.already %}{{ t.already }}{% else %}{{ t.sent }}{% endif %}</p>
+    {% if result.lesson_sent %}<p>✓ {{ t.lesson_sent }}</p>{% endif %}
+    {% for q in result.quizzes %}
+      <div class="item">
+        <p dir="auto"><strong>{{ q.title }}</strong></p>
+        <p><span class="score" dir="ltr">{{ q.score_percent }}%</span>
+          <span class="muted" dir="ltr">({{ q.correct }}/{{ q.total }})</span> {{ t.correct }}</p>
+        {% if q.needs_review %}<p class="warn">{{ q.needs_review }} × {{ t.needs_review }}</p>{% endif %}
+      </div>
+    {% endfor %}
     <p class="muted">{{ t.close }}</p>
   </div>
-  {% if result.mistakes %}
+  {% if result.has_mistakes %}
   <div class="card">
     <h1>{{ t.review }}</h1>
-    {% for m in result.mistakes %}
+    {% for q in result.quizzes %}{% if q.mistakes %}
+      {% if result.quizzes|length > 1 %}<h2 dir="auto">{{ q.title }}</h2>{% endif %}
+      {% for m in q.mistakes %}
       <div class="item">
         <p dir="auto"><strong>{{ m.number }}.</strong> {{ m.question }}</p>
         <p dir="auto" class="{% if m.result == 'needs_review' %}warn{% else %}bad{% endif %}">{{ t.your }}: {{ m.student_answer }}</p>
         {% if m.result != 'needs_review' %}<p dir="auto" class="ok">{{ t.right }}: {{ m.correct_answer }}</p>{% endif %}
         {% if m.explanation %}<p dir="auto" class="muted">{{ m.explanation }}</p>{% endif %}
       </div>
-    {% endfor %}
+      {% endfor %}
+    {% endif %}{% endfor %}
   </div>
+  {% endif %}
   {% if review %}
   <div class="card">
     <p>{{ t.copy }}</p>
     <textarea id="review" readonly dir="auto">{{ review }}</textarea>
     <button type="button" onclick="navigator.clipboard.writeText(document.getElementById('review').value)">📋</button>
   </div>
-  {% endif %}
   {% endif %}
 {% else %}
   <div class="card">

@@ -51,6 +51,18 @@ export default function Study() {
     );
   }
 
+  function QuizInfo({ q }: { q: QuizItem }) {
+    return (
+      <span className="flex flex-wrap items-center gap-2">
+        <Chip>{t.study.quizLabel}</Chip>
+        <span dir="auto">{q.title}</span>
+        <span className="text-sm text-quiet">{t.study.questions(q.questions)}</span>
+        {q.ai_generated && <Chip tone="info">{t.study.aiQuiz}</Chip>}
+        {q.best_score_percent != null && <Chip tone="ok">{`${t.study.best} ${q.best_score_percent}%`}</Chip>}
+      </span>
+    );
+  }
+
   function QuizRow({ q }: { q: QuizItem }) {
     return (
       <li className="flex flex-wrap items-center justify-between gap-3 py-2">
@@ -90,12 +102,18 @@ export default function Study() {
             <li key={l.lesson_id} className="py-3">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <strong dir="auto">{`${l.order}. ${l.title}`}</strong>
-                <CopyButton k={`l${l.lesson_id}`} target={{ lesson_id: l.lesson_id }} label={t.study.copyLesson} />
+                <CopyButton
+                  k={`l${l.lesson_id}`}
+                  target={{ lesson_id: l.lesson_id }}
+                  label={l.quizzes.length > 0 ? t.study.copyLessonQuiz : t.study.copyLesson}
+                />
               </div>
               {l.quizzes.length > 0 && (
-                <ul className="ms-4 mt-1 border-s border-[var(--line)] ps-4">
+                <ul className="ms-4 mt-2 space-y-1 border-s border-[var(--line)] ps-4">
                   {l.quizzes.map((q) => (
-                    <QuizRow key={q.quiz_id} q={q} />
+                    <li key={q.quiz_id}>
+                      <QuizInfo q={q} />
+                    </li>
                   ))}
                 </ul>
               )}
