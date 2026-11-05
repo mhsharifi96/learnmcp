@@ -197,7 +197,6 @@ def join_class(request, code: str):
         {
             "name": data.get("name", ""),
             "email": data.get("email", ""),
-            "is_adult": bool(data.get("is_adult")),
             "consent": bool(data.get("consent")),
         }
     )

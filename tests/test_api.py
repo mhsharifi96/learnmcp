@@ -14,11 +14,11 @@ def test_student_join_connect_me_leave(client, course_setup):
     info = client.get(f"/api/classes/{course.join_code.lower()}").json()
     assert info["title"] == course.title and not info["linked"]
 
-    bad = post(client, f"/api/classes/{course.join_code}/join", {"name": "Sam", "email": "s@example.com", "consent": True})
-    assert bad.status_code == 400 and "is_adult" in bad.json()["errors"]
+    bad = post(client, f"/api/classes/{course.join_code}/join", {"name": "Sam", "email": "s@example.com"})
+    assert bad.status_code == 400 and "consent" in bad.json()["errors"]
 
     ok = post(client, f"/api/classes/{course.join_code}/join",
-              {"name": "Sam", "email": "s@example.com", "consent": True, "is_adult": True})
+              {"name": "Sam", "email": "s@example.com", "consent": True})
     eid = ok.json()["enrollment_id"]
     conn = client.get(f"/api/connect/{eid}").json()
     raw = conn["mcp_url"].split("/s/")[1].split("/mcp")[0]

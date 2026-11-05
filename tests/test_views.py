@@ -19,15 +19,15 @@ def test_signup_creates_staff_instructor(client, db):
     assert Instructor.objects.get(user=user).display_name == "Carol"
 
 
-def test_join_flow_requires_consent_and_age(client, course_setup):
+def test_join_flow_requires_consent(client, course_setup):
     course = course_setup[0]
     url = reverse("learn:join", args=[course.join_code])
     page = client.get(url).content.decode()
     assert "Not recorded" in page and "conversation" in page
-    resp = client.post(url, {"name": "Sam", "email": "sam@example.com", "consent": "on"})
-    assert resp.status_code == 200 and not Enrollment.objects.exists()  # age box missing
+    resp = client.post(url, {"name": "Sam", "email": "sam@example.com"})
+    assert resp.status_code == 200 and not Enrollment.objects.exists()  # consent box missing
 
-    resp = client.post(url, {"name": "Sam", "email": "sam@example.com", "consent": "on", "is_adult": "on"})
+    resp = client.post(url, {"name": "Sam", "email": "sam@example.com", "consent": "on"})
     enrollment = Enrollment.objects.get()
     assert resp.url == reverse("learn:connect", args=[enrollment.pk])
 
@@ -51,7 +51,7 @@ def test_second_class_links_same_student(client, course_setup, other_instructor)
 
     first = course_setup[0]
     second = make_course(other_instructor, "Other")[0]
-    data = {"name": "Sam", "email": "sam@example.com", "consent": "on", "is_adult": "on"}
+    data = {"name": "Sam", "email": "sam@example.com", "consent": "on"}
     client.post(reverse("learn:join", args=[first.join_code]), data)
     resp = client.post(reverse("learn:join", args=[second.join_code]), data)
     assert Student.objects.count() == 1 and Enrollment.objects.count() == 2
@@ -62,7 +62,7 @@ def test_my_data_regenerate_and_leave(client, course_setup):
     course, lesson1, *_ = course_setup
     client.post(
         reverse("learn:join", args=[course.join_code]),
-        {"name": "Sam", "email": "sam@example.com", "consent": "on", "is_adult": "on"},
+        {"name": "Sam", "email": "sam@example.com", "consent": "on"},
     )
     enrollment = Enrollment.objects.get()
     Event.objects.create(enrollment=enrollment, type=Event.STUCK, lesson=lesson1, concept="floats")

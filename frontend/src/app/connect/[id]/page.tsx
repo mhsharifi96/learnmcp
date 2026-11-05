@@ -60,24 +60,47 @@ export default function Connect() {
         )}
         {info.other_classes > 0 && <Alert kind="info">{t.connect.otherClasses}</Alert>}
       </Card>
-      <div className="grid gap-5 md:grid-cols-2">
-        {[
-          { title: t.connect.claudeTitle, steps: t.connect.claudeSteps, note: t.connect.claudeNote },
-          { title: t.connect.gptTitle, steps: t.connect.gptSteps, note: "" },
-        ].map((b) => (
-          <Card key={b.title}>
-            <h2 className="mb-3 text-xl font-bold text-lapis" dir="auto">
-              {b.title}
-            </h2>
+      <Card>
+        <h2 className="mb-3 text-xl font-bold text-lapis" dir="auto">
+          {t.connect.claudeTitle}
+        </h2>
+        <div className="grid items-start gap-5 lg:grid-cols-[1fr_1.2fr]">
+          <div>
             <ol className="list-decimal space-y-1.5 ps-5">
-              {b.steps.map((s) => (
+              {t.connect.claudeSteps.map((s) => (
                 <li key={s}>{s}</li>
               ))}
             </ol>
-            {b.note && <p className="mt-3 text-sm text-quiet">{b.note}</p>}
-          </Card>
-        ))}
-      </div>
+            <p className="mt-3 text-sm text-quiet">{t.connect.claudeNote}</p>
+          </div>
+          <figure>
+            <a href="/help/claude-connectors.png" target="_blank" rel="noopener">
+              <img
+                src="/help/claude-connectors.png"
+                width={2066}
+                height={1594}
+                loading="lazy"
+                alt={t.connect.claudeShot}
+                className="h-auto w-full rounded-lg border border-line"
+              />
+            </a>
+            <figcaption className="mt-2 text-sm text-quiet">
+              {t.connect.claudeShot}
+            </figcaption>
+          </figure>
+        </div>
+      </Card>
+      <Card>
+        <h2 className="mb-3 text-xl font-bold text-lapis" dir="auto">
+          {t.connect.gptTitle}
+        </h2>
+        <ol className="list-decimal space-y-1.5 ps-5">
+          {t.connect.gptSteps.map((s) => (
+            <li key={s}>{s}</li>
+          ))}
+        </ol>
+        <p className="mt-3 text-sm text-quiet">{t.connect.gptNote}</p>
+      </Card>
       <Alert kind="info">{t.connect.voiceTip}</Alert>
       <Link href="/me/">{t.connect.toMe}</Link>
     </div>

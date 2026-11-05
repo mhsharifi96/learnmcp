@@ -22,7 +22,6 @@ class JoinCodeForm(forms.Form):
 class JoinForm(forms.Form):
     name = forms.CharField(max_length=120)
     email = forms.EmailField()
-    is_adult = forms.BooleanField(label="I am 18 years old or older.", required=True)
     consent = forms.BooleanField(
         label="I understand what is shared with my instructor and I agree.", required=True
     )

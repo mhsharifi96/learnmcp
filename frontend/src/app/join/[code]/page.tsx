@@ -24,7 +24,7 @@ export default function Join() {
   const { code } = useParams<{ code: string }>();
   const [info, setInfo] = useState<ClassInfo | null>(null);
   const [loadError, setLoadError] = useState("");
-  const [form, setForm] = useState({ name: "", email: "", is_adult: false, consent: false });
+  const [form, setForm] = useState({ name: "", email: "", consent: false });
   const [errors, setErrors] = useState<Record<string, string[]>>({});
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
@@ -113,21 +113,19 @@ export default function Join() {
               <Field label={t.join.email} htmlFor="email" error={errors.email}>
                 <Input id="email" type="email" dir="ltr" required value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} autoComplete="email" />
               </Field>
-              {(["is_adult", "consent"] as const).map((k) => (
-                <div key={k} className="mb-3">
-                  <label className="flex items-start gap-3">
-                    <input
-                      type="checkbox"
-                      className="mt-1.5 h-4 w-4 accent-[var(--turquoise)]"
-                      checked={form[k]}
-                      onChange={(e) => setForm({ ...form, [k]: e.target.checked })}
-                    />
-                    <span>{k === "is_adult" ? t.join.adult : t.join.consent}</span>
-                  </label>
-                  {errors[k] && <p className="ms-7 text-sm text-danger">{errors[k].join(" ")}</p>}
-                </div>
-              ))}
-              <Button type="submit" disabled={busy || !form.is_adult || !form.consent} className="mt-2">
+              <div className="mb-3">
+                <label className="flex items-start gap-3">
+                  <input
+                    type="checkbox"
+                    className="mt-1.5 h-4 w-4 accent-[var(--turquoise)]"
+                    checked={form.consent}
+                    onChange={(e) => setForm({ ...form, consent: e.target.checked })}
+                  />
+                  <span>{t.join.consent}</span>
+                </label>
+                {errors.consent && <p className="ms-7 text-sm text-danger">{errors.consent.join(" ")}</p>}
+              </div>
+              <Button type="submit" disabled={busy || !form.consent} className="mt-2">
                 {busy ? t.common.loading : t.join.submit}
               </Button>
             </form>
