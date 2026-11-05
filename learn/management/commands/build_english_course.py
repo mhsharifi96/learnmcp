@@ -176,6 +176,7 @@ def _lessons():
         level = lv["level"]
         yield {
             "title": f"{level} · 20 key words",
+            "kind": "vocabulary",
             "brief": lv["words_brief"],
             "objectives": f"Learn and use 20 {level} words\nPronounce them correctly\nUse them in your own sentences",
             "teaching_notes": PERSIAN + " " + VOICE + " " + lv["words_voice"],
@@ -192,6 +193,7 @@ def _lessons():
         }
         yield {
             "title": lv["grammar_title"],
+            "kind": "grammar",
             "brief": lv["grammar_brief"],
             "objectives": f"Understand the {level} grammar point\nUse it correctly in speaking and writing",
             "teaching_notes": PERSIAN + " " + VOICE + " " + lv["grammar_voice"],
@@ -233,6 +235,7 @@ class Command(BaseCommand):
                 course=course,
                 order=start + i,
                 title=data["title"],
+                kind=data.get("kind", "general"),
                 brief=data["brief"],
                 objectives=data["objectives"],
                 teaching_notes=data["teaching_notes"],

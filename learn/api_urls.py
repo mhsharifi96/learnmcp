@@ -14,6 +14,7 @@ urlpatterns = [
     path("auth/verify-email/resend", api.resend_verification),
     path("me/settings", api.my_settings),
     # students
+    path("classes", api.catalog),
     path("classes/<str:code>", api.class_info),
     path("classes/<str:code>/join", api.join_class),
     path("connect/<int:enrollment_id>", api.connect_info),

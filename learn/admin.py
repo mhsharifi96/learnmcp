@@ -88,7 +88,7 @@ class ReadOnlyInline(admin.TabularInline):
 class LessonInline(InstructorScopedMixin, admin.StackedInline):
     model = Lesson
     extra = 0
-    fields = ("order", "title", "brief", "objectives", "content", "teaching_notes")
+    fields = ("order", "title", "kind", "brief", "objectives", "content", "teaching_notes")
     show_change_link = True
     formfield_overrides = {models.TextField: {"widget": forms.Textarea(attrs={"rows": 4, "cols": 90})}}
 
@@ -128,7 +128,7 @@ class CourseAdmin(InstructorScopedMixin, admin.ModelAdmin):
         )
 
     def get_fields(self, request, obj=None):
-        fields = ["title", "description"]
+        fields = ["title", "description", "listed"]
         if request.user.is_superuser:
             fields.insert(0, "instructor")
         if obj:
@@ -213,8 +213,8 @@ class CourseAdmin(InstructorScopedMixin, admin.ModelAdmin):
 
 @admin.register(Lesson)
 class LessonAdmin(InstructorScopedMixin, admin.ModelAdmin):
-    list_display = ("title", "course", "order")
-    fields = ("course", "order", "title", "brief", "objectives", "content", "teaching_notes")
+    list_display = ("title", "course", "kind", "order")
+    fields = ("course", "order", "title", "kind", "brief", "objectives", "content", "teaching_notes")
     list_filter = (("course", admin.RelatedOnlyFieldListFilter),)
     search_fields = ("title", "content")
     ordering = ("course", "order")

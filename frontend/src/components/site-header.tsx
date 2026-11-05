@@ -10,6 +10,7 @@ export function SiteHeader() {
   const path = usePathname();
   const [open, setOpen] = useState(false);
   const links = [
+    { href: "/classes/", label: t.nav.classes },
     { href: "/join/", label: t.nav.join },
     { href: "/me/", label: t.nav.me },
     { href: "/teach/", label: t.nav.teach },

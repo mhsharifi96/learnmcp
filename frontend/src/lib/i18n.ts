@@ -5,7 +5,7 @@ export const LANG_COOKIE = "lang";
 
 const en = {
   brand: "learnmcp",
-  nav: { home: "Home", join: "Join a class", me: "My classes", teach: "Instructor panel", login: "Log in", logout: "Log out", lang: "فارسی" },
+  nav: { home: "Home", classes: "All classes", join: "Join a class", me: "My classes", teach: "Instructor panel", login: "Log in", logout: "Log out", lang: "فارسی" },
   common: {
     save: "Save", saving: "Saving…", saved: "Saved", cancel: "Cancel", delete: "Delete", edit: "Edit", add: "Add",
     copy: "Copy", copied: "Copied", loading: "Loading…", back: "Back", none: "—", networkError: "Can't reach the server. Check your connection and try again.",
@@ -83,6 +83,37 @@ const en = {
     oneUse: "Each copied prompt works once and for 30 days. Copy a new one to retake a quiz.",
     open: "Study with any AI (no connector)",
   },
+  kinds: {
+    general: { label: "General", help: "A normal lesson: the AI explains, gives examples and checks understanding.", ph: "A2: explain the present perfect with real-life examples." },
+    grammar: { label: "Grammar", help: "Rule, examples, then step-by-step exercises and the student's own sentences.", ph: "A2: past simple, regular and irregular verbs. Focus on questions with did." },
+    vocabulary: { label: "Vocabulary", help: "Words in small sets with meaning, example and collocation, then recall rounds.", ph: "A1: 20 words about food and drinks. Include phrases for ordering." },
+    translation: { label: "Persian → English + grammar", help: "The AI gives Persian sentences; the student translates and gets grammar corrections.", ph: "A2: 10 Persian sentences using the past continuous and when/while." },
+    speaking: { label: "Speaking", help: "Topics answered by voice, with corrections and a model answer each time.", ph: "B1: talk about your hometown and daily routine. 5 questions." },
+    conversation: { label: "Conversation / role-play", help: "The AI plays a role in a real situation; corrections come after the scene.", ph: "A2: ordering in a café. The AI is the waiter." },
+    reading: { label: "Reading", help: "A short text, key words first, then comprehension questions.", ph: "B1: a 200-word text about remote work, with 5 questions." },
+    writing: { label: "Writing", help: "A writing task with a model; the AI corrects by error type and asks for a rewrite.", ph: "A2: write an email to a friend about your weekend (80 words)." },
+    pronunciation: { label: "Pronunciation", help: "Hard sounds for Persian speakers, minimal pairs, answered by voice.", ph: "th /θ/ /ð/ and w vs v, with short sentences to repeat." },
+  },
+  catalog: {
+    title: "All classes", lead: "Classes you can join. Filter by instructor or search by name.",
+    search: "Search classes", instructor: "Instructor", allInstructors: "All instructors",
+    lessons: (n: number) => `${n} lesson${n === 1 ? "" : "s"}`, students: (n: number) => `${n} student${n === 1 ? "" : "s"}`,
+    join: "View and join", joined: "Joined", open: "Open", empty: "No classes match.", count: (n: number) => `${n} class${n === 1 ? "" : "es"}`,
+  },
+  hist: {
+    continue: "Continue learning", next: "Next", allDone: "All lessons done 🎉", connect: "Connect an AI app (MCP)", regenerateNote: "To connect Claude or ChatGPT with a connector you need a personal link. Making a new one stops the old link.",
+    progress: "Progress", lessonsStarted: "Lessons started", lessonsDone: "Lessons with quiz done", quizzes: "Quizzes done", avg: "Average score",
+    lessons: "Lessons", status: { not_started: "Not started", started: "Studied", quiz_done: "Done" },
+    history: "History", empty: "Nothing yet. Start the first lesson.", today: "Today", yesterday: "Yesterday",
+    studied: "Studied the lesson", feedback: "Lesson feedback", understood: (n: number) => `Understood ${n}/5`, difficult: "Hard for you",
+    quiz: "Quiz", inProgress: "In progress", answered: (a: number, n: number) => `${a} of ${n} answered`,
+    correctOf: (c: number, n: number) => `${c} of ${n} correct`, review: (n: number) => `${n} waiting for your instructor`,
+    showAnswers: "Show answers", hideAnswers: "Hide answers", aiSummary: "AI summary", toReview: "To review",
+    problem: "Difficulty noted", resolved: "Handled by your instructor", instructorNote: "Instructor's note",
+    via: { mcp: "connector", prompt: "copied prompt" },
+    settings: "Connection and privacy", joined: "Joined", consent: "Consent given", linkEnds: "Your link ends in",
+    filter: { all: "All", lesson: "Lessons", quiz: "Quizzes", problem: "Difficulties" },
+  },
   status: { correct: "Correct", incorrect: "Incorrect", needs_review: "Needs review" },
   auth: {
     loginTitle: "Instructor log in", username: "Username", password: "Password", login: "Log in",
@@ -153,7 +184,7 @@ const en = {
     },
     trend: "Score trend", openProblems: "Open problems",
     lesson: {
-      add: "Add lesson", title: "Title", order: "Order", brief: "Lesson prompt",
+      add: "Add lesson", title: "Title", order: "Order", kind: "Lesson type", brief: "Lesson prompt",
       briefHelp: "Describe the lesson in a few lines (topic, level, focus). If you leave the lesson text empty, the student's AI builds the full lesson from this prompt.",
       briefPh: "A2: teach the past simple with irregular verbs. Ask the student to describe last weekend by voice.",
       objectives: "Objectives", objectivesHelp: "One per line.", content: "Lesson text",
@@ -180,7 +211,7 @@ const en = {
     settings: {
       reminderTitle: "Inactivity reminders", reminderLabel: "Email a student after this many days without studying",
       reminderHelp: "0 = off. While the student stays inactive, the email repeats every N days. Only students with a confirmed email who haven't turned reminders off get it.",
-      reminderOff: "Off", reminderOn: (d: number) => `On: after ${d} day${d === 1 ? "" : "s"}`,
+      listedLabel: "Show this class on the public class list", listedHelp: "Anyone can see its name, description and instructor. Students still need an account and must agree before joining.", reminderOff: "Off", reminderOn: (d: number) => `On: after ${d} day${d === 1 ? "" : "s"}`,
       title: "Class settings", danger: "Delete class", dangerText: "Deletes the class with all lessons, quizzes, students and their data.", deleteConfirm: "Delete this class and all its data? This can't be undone." },
     student: { attempts: "Quiz attempts", events: "Activity", expected: "Expected", aiGenerated: "AI question" },
     adminLink: "Classic admin",
@@ -191,7 +222,7 @@ type Dict = typeof en;
 
 const fa: Dict = {
   brand: "learnmcp",
-  nav: { home: "خانه", join: "ورود به کلاس", me: "کلاس‌های من", teach: "پنل مدرس", login: "ورود", logout: "خروج", lang: "English" },
+  nav: { home: "خانه", classes: "همهٔ کلاس‌ها", join: "ورود به کلاس", me: "کلاس‌های من", teach: "پنل مدرس", login: "ورود", logout: "خروج", lang: "English" },
   common: {
     save: "ذخیره", saving: "در حال ذخیره…", saved: "ذخیره شد", cancel: "انصراف", delete: "حذف", edit: "ویرایش", add: "افزودن",
     copy: "کپی", copied: "کپی شد", loading: "در حال بارگذاری…", back: "بازگشت", none: "—", networkError: "اتصال به سرور برقرار نشد. اینترنت را بررسی کنید و دوباره تلاش کنید.",
@@ -269,6 +300,37 @@ const fa: Dict = {
     oneUse: "هر پرامپت کپی‌شده یک بار و تا ۳۰ روز کار می‌کند. برای آزمون دوباره، پرامپت جدید کپی کنید.",
     open: "درس خواندن با هر هوش مصنوعی (بدون connector)",
   },
+  kinds: {
+    general: { label: "عمومی", help: "درس معمولی: هوش مصنوعی توضیح می‌دهد، مثال می‌زند و فهم را می‌سنجد.", ph: "A2: حال کامل را با مثال‌های روزمره توضیح بده." },
+    grammar: { label: "گرامر", help: "قاعده، مثال، بعد تمرین قدم‌به‌قدم و جمله‌سازی خود دانش‌آموز.", ph: "A2: گذشتهٔ ساده، فعل‌های باقاعده و بی‌قاعده. تمرکز روی سؤال با did." },
+    vocabulary: { label: "لغات", help: "لغت‌ها در دسته‌های کوچک با معنی، مثال و هم‌آیند، بعد مرور و یادآوری.", ph: "A1: ۲۰ لغت دربارهٔ غذا و نوشیدنی، با عبارت‌های سفارش دادن." },
+    translation: { label: "ترجمهٔ فارسی به انگلیسی + گرامر", help: "هوش مصنوعی جملهٔ فارسی می‌دهد، دانش‌آموز ترجمه می‌کند و اصلاح گرامری می‌گیرد.", ph: "A2: ۱۰ جملهٔ فارسی با گذشتهٔ استمراری و when/while." },
+    speaking: { label: "مکالمه (Speaking)", help: "جواب صوتی به موضوع‌ها، با اصلاح و نمونه‌جواب در هر نوبت.", ph: "B1: دربارهٔ شهرت و برنامهٔ روزانه‌ات صحبت کن. ۵ سؤال." },
+    conversation: { label: "نقش‌آفرینی (Role-play)", help: "هوش مصنوعی در یک موقعیت واقعی نقش بازی می‌کند؛ اصلاح‌ها بعد از صحنه.", ph: "A2: سفارش در کافه. هوش مصنوعی گارسون است." },
+    reading: { label: "درک مطلب (Reading)", help: "متن کوتاه، اول لغت‌های کلیدی، بعد سؤال‌های درک مطلب.", ph: "B1: متن ۲۰۰ کلمه‌ای دربارهٔ دورکاری با ۵ سؤال." },
+    writing: { label: "نوشتن (Writing)", help: "تکلیف نوشتاری با نمونه؛ اصلاح بر اساس نوع خطا و بازنویسی.", ph: "A2: ایمیل ۸۰ کلمه‌ای به دوستت دربارهٔ آخر هفته." },
+    pronunciation: { label: "تلفظ", help: "صداهای سخت برای فارسی‌زبان‌ها، جفت‌کلمه‌ها، با جواب صوتی.", ph: "صدای th و تفاوت w و v، با جمله‌های کوتاه برای تکرار." },
+  },
+  catalog: {
+    title: "همهٔ کلاس‌ها", lead: "کلاس‌هایی که می‌توانید عضوشان شوید. بر اساس مدرس فیلتر کنید یا اسم کلاس را جستجو کنید.",
+    search: "جستجوی کلاس", instructor: "مدرس", allInstructors: "همهٔ مدرس‌ها",
+    lessons: (n: number) => `${n} درس`, students: (n: number) => `${n} دانشجو`,
+    join: "مشاهده و عضویت", joined: "عضو هستید", open: "ورود", empty: "کلاسی پیدا نشد.", count: (n: number) => `${n} کلاس`,
+  },
+  hist: {
+    continue: "ادامهٔ یادگیری", next: "بعدی", allDone: "همهٔ درس‌ها تمام شد 🎉", connect: "اتصال اپ هوش مصنوعی (MCP)", regenerateNote: "برای اتصال Claude یا ChatGPT با connector لینک شخصی لازم است. ساختن لینک جدید، لینک قبلی را از کار می‌اندازد.",
+    progress: "پیشرفت", lessonsStarted: "درس‌های شروع‌شده", lessonsDone: "درس‌های با آزمون تمام‌شده", quizzes: "آزمون‌های داده‌شده", avg: "میانگین نمره",
+    lessons: "درس‌ها", status: { not_started: "شروع نشده", started: "خوانده شده", quiz_done: "تمام" },
+    history: "تاریخچه", empty: "هنوز چیزی نیست. اولین درس را شروع کنید.", today: "امروز", yesterday: "دیروز",
+    studied: "درس را خواندید", feedback: "بازخورد درس", understood: (n: number) => `میزان فهم ${n} از ۵`, difficult: "سخت بود",
+    quiz: "آزمون", inProgress: "نیمه‌کاره", answered: (a: number, n: number) => `${a} از ${n} جواب داده شده`,
+    correctOf: (c: number, n: number) => `${c} از ${n} درست`, review: (n: number) => `${n} سؤال منتظر بررسی مدرس`,
+    showAnswers: "نمایش جواب‌ها", hideAnswers: "بستن جواب‌ها", aiSummary: "خلاصهٔ هوش مصنوعی", toReview: "برای مرور",
+    problem: "مشکل ثبت‌شده", resolved: "مدرس رسیدگی کرد", instructorNote: "یادداشت مدرس",
+    via: { mcp: "connector", prompt: "پرامپت کپی‌شده" },
+    settings: "اتصال و حریم خصوصی", joined: "تاریخ عضویت", consent: "تاریخ رضایت", linkEnds: "لینک شما با این تمام می‌شود",
+    filter: { all: "همه", lesson: "درس‌ها", quiz: "آزمون‌ها", problem: "مشکل‌ها" },
+  },
   status: { correct: "درست", incorrect: "نادرست", needs_review: "نیاز به بررسی" },
   auth: {
     loginTitle: "ورود مدرس", username: "نام کاربری", password: "رمز عبور", login: "ورود",
@@ -339,7 +401,7 @@ const fa: Dict = {
     },
     trend: "روند نمره", openProblems: "مشکلات باز",
     lesson: {
-      add: "افزودن درس", title: "عنوان", order: "ترتیب", brief: "پرامپت درس",
+      add: "افزودن درس", title: "عنوان", order: "ترتیب", kind: "نوع درس", brief: "پرامپت درس",
       briefHelp: "درس را در چند خط توضیح دهید (موضوع، سطح، تمرکز). اگر متن درس را خالی بگذارید، هوش مصنوعی دانش‌آموز درس کامل را از همین پرامپت می‌سازد.",
       briefPh: "A2: گذشتهٔ ساده با فعل‌های بی‌قاعده را یاد بده. از دانش‌آموز بخواه آخر هفته‌اش را با ویس تعریف کند.",
       objectives: "اهداف", objectivesHelp: "هر هدف در یک خط.", content: "متن درس",
@@ -366,7 +428,7 @@ const fa: Dict = {
     settings: {
       reminderTitle: "یادآور عدم فعالیت", reminderLabel: "بعد از چند روز درس نخواندن، به دانش‌آموز ایمیل یادآور برود",
       reminderHelp: "۰ = خاموش. تا وقتی دانش‌آموز غیرفعال بماند، هر N روز یک بار تکرار می‌شود. فقط برای دانش‌آموزانی که ایمیلشان را تأیید کرده‌اند و یادآور را خاموش نکرده‌اند.",
-      reminderOff: "خاموش", reminderOn: (d: number) => `روشن: بعد از ${d} روز`,
+      listedLabel: "نمایش این کلاس در فهرست عمومی کلاس‌ها", listedHelp: "همه نام، توضیح و مدرس کلاس را می‌بینند. دانشجو برای عضویت همچنان حساب و رضایت لازم دارد.", reminderOff: "خاموش", reminderOn: (d: number) => `روشن: بعد از ${d} روز`,
       title: "تنظیمات کلاس", danger: "حذف کلاس", dangerText: "کلاس با همهٔ درس‌ها، آزمون‌ها، دانش‌آموزان و داده‌هایشان حذف می‌شود.", deleteConfirm: "این کلاس و همهٔ داده‌هایش حذف شود؟ این کار برگشت‌پذیر نیست." },
     student: { attempts: "آزمون‌ها", events: "فعالیت‌ها", expected: "جواب درست", aiGenerated: "سؤال AI" },
     adminLink: "پنل کلاسیک",

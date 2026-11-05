@@ -1,6 +1,8 @@
 export type User = { username: string; display_name: string; is_superuser: boolean };
 export type StudentAccount = { name: string; email: string; email_verified: boolean; email_reminders: boolean; lang: "fa" | "en" };
-export type Lesson = { id: number; order: number; title: string; brief: string; objectives: string; content: string; teaching_notes: string };
+export type LessonKind = "general" | "grammar" | "vocabulary" | "translation" | "speaking" | "conversation" | "reading" | "writing" | "pronunciation";
+export const LESSON_KINDS: LessonKind[] = ["general", "grammar", "vocabulary", "translation", "speaking", "conversation", "reading", "writing", "pronunciation"];
+export type Lesson = { id: number; order: number; title: string; kind: LessonKind; brief: string; objectives: string; content: string; teaching_notes: string };
 export type QuizSummary = {
   id: number;
   title: string;
@@ -32,6 +34,7 @@ export type CourseSummary = {
   students: number | null;
   lessons: number | null;
   reminder_after_days: number;
+  listed: boolean;
 };
 export type CourseDetail = Omit<CourseSummary, "lessons"> & { lessons: Lesson[]; quizzes: QuizSummary[]; student_count: number };
 export type Problem = {

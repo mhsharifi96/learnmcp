@@ -18,6 +18,12 @@ Free Gemini, ChatGPT and DeepSeek can't add connectors. On `/study/{enrollment_i
 - The key is signed, expires after 30 days, works once, and dies when the student makes a new connection link.
 - If the AI can't render HTML or the sandbox blocks the button, `/r/{key}` also accepts the pasted JSON.
 
+### Language lessons
+
+Each lesson has a type (`Lesson.kind`): general, grammar, vocabulary, Persian → English translation + grammar, speaking, role-play, reading, writing, pronunciation. The type adds teaching rules for the student's AI (`learn/services/lesson_kinds.py`), over MCP and in copied prompts.
+
+`python manage.py add_language_lessons --join-code CODE [--dry-run]` adds translation, role-play, reading and writing lessons to each level of a course made by `build_english_course`, without deleting anything.
+
 ## Architecture
 
 ```

@@ -6,6 +6,8 @@ from django.core.exceptions import ValidationError
 from django.db import models
 from django.utils import timezone
 
+from learn.services import lesson_kinds
+
 JOIN_CODE_ALPHABET = string.ascii_uppercase + string.digits
 # Avoid characters that are easy to confuse when read aloud or typed.
 JOIN_CODE_ALPHABET = "".join(c for c in JOIN_CODE_ALPHABET if c not in "O0I1L")
@@ -29,6 +31,9 @@ class Course(models.Model):
     title = models.CharField(max_length=200)
     description = models.TextField(blank=True)
     join_code = models.CharField(max_length=16, unique=True, editable=False)
+    listed = models.BooleanField(
+        default=True, help_text="Show this class on the public class list. Students still need to join."
+    )
     reminder_after_days = models.PositiveSmallIntegerField(
         default=0,
         help_text="Email a student after this many days without studying (0 = off). Repeats every N days.",
@@ -56,6 +61,13 @@ class Lesson(models.Model):
     course = models.ForeignKey(Course, on_delete=models.CASCADE, related_name="lessons")
     order = models.PositiveIntegerField(default=1)
     title = models.CharField(max_length=200)
+    kind = models.CharField(
+        "lesson type",
+        max_length=20,
+        choices=lesson_kinds.CHOICES,
+        default=lesson_kinds.GENERAL,
+        help_text="How the AI teaches it (grammar, vocabulary, speaking, translation…).",
+    )
     objectives = models.TextField(blank=True, help_text="One objective per line.")
     brief = models.TextField(
         "lesson prompt",

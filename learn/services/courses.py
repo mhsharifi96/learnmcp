@@ -9,7 +9,7 @@ time, never by unverified email).
 from django.db.models import Count, Prefetch, Q
 
 from learn.models import Enrollment, Event, Lesson, Quiz, QuizAttempt
-from learn.services import ServiceError, events
+from learn.services import ServiceError, events, lesson_kinds
 
 LESSON_NOT_STARTED = "not_started"
 LESSON_STARTED = "started"
@@ -154,6 +154,7 @@ def get_lesson(enrollment, lesson_id: int, *, client: str = "") -> dict:
         "lesson_id": lesson.id,
         "course": lesson.course.title,
         "title": lesson.title,
+        "lesson_type": lesson.kind,
         "objectives": lesson.objectives_list,
         "instructor_lesson_prompt": lesson.brief or None,
         "content": lesson.content or None,
@@ -164,5 +165,7 @@ def get_lesson(enrollment, lesson_id: int, *, client: str = "") -> dict:
         "next_lesson": (
             {"lesson_id": next_lesson.id, "title": next_lesson.title} if next_lesson else None
         ),
-        "how_to_teach": (BRIEF_RULES if not lesson.content.strip() else "") + TEACHING_RULES,
+        "how_to_teach": (BRIEF_RULES if not lesson.content.strip() else "")
+        + (lesson_kinds.rules(lesson.kind) + " " if lesson_kinds.rules(lesson.kind) else "")
+        + TEACHING_RULES,
     }

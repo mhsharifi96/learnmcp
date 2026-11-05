@@ -37,7 +37,7 @@ from learn.models import (
     Student,
     ToolCall,
 )
-from learn.services import ServiceError, accounts, courses, enrollments, grading, packs, progress, quizzes, tokens
+from learn.services import ServiceError, accounts, courses, enrollments, grading, history, packs, progress, quizzes, tokens
 
 
 class ApiError(Exception):
@@ -298,6 +298,35 @@ def my_settings(request):
 
 
 @api()
+def catalog(request):
+    """Public list of classes (instructors can hide theirs). Join codes are only for classes that are listed."""
+    student = pages.account_student(request)
+    joined = set(Enrollment.objects.filter(student=student).values_list("course_id", flat=True)) if student else set()
+    qs = (
+        Course.objects.filter(listed=True)
+        .select_related("instructor")
+        .annotate(_students=Count("enrollments", distinct=True), _lessons=Count("lessons", distinct=True))
+        .order_by("instructor__display_name", "title")
+    )
+    return {
+        "classes": [
+            {
+                "id": c.id,
+                "code": c.join_code,
+                "title": c.title,
+                "description": c.description,
+                "instructor": c.instructor.display_name,
+                "instructor_id": c.instructor_id,
+                "lessons": c._lessons,
+                "students": c._students,
+                "joined": c.id in joined,
+            }
+            for c in qs
+        ]
+    }
+
+
+@api()
 def class_info(request, code: str):
     course = Course.objects.select_related("instructor").filter(join_code=code.strip().upper()).first()
     if course is None:
@@ -492,6 +521,8 @@ def my_data(request):
                 "token_hint": e.token_hint,
                 "attempts": [_attempt_payload(a) for a in e.attempts.all()],
                 "events": [_event_payload(ev) for ev in e.events.all()],
+                "progress": history.progress(e),
+                "timeline": history.timeline(e),
             }
             for e in found
         ]
@@ -569,6 +600,7 @@ def _lesson_payload(lesson: Lesson) -> dict:
         "id": lesson.id,
         "order": lesson.order,
         "title": lesson.title,
+        "kind": lesson.kind,
         "brief": lesson.brief,
         "objectives": lesson.objectives,
         "content": lesson.content,
@@ -616,6 +648,7 @@ def _course_summary(course: Course) -> dict:
         "students": getattr(course, "_students", None),
         "lessons": getattr(course, "_lessons", None),
         "reminder_after_days": course.reminder_after_days,
+        "listed": course.listed,
         "created_at": _dt(course.created_at),
     }
 
@@ -656,7 +689,7 @@ def teach_course(request, course_id: int):
                     errors={"reminder_after_days": ["Choose 0 (off) to 365 days."]},
                 )
             data["reminder_after_days"] = days
-        _apply(course, data, ("title", "description", "reminder_after_days"))
+        _apply(course, data, ("title", "description", "reminder_after_days", "listed"))
     data = _course_summary(course)
     data["lessons"] = [_lesson_payload(lesson) for lesson in course.lessons.order_by("order", "id")]
     data["quizzes"] = [_quiz_payload(q) for q in course.quizzes.select_related("lesson")]
@@ -710,12 +743,15 @@ def teach_dashboard(request, course_id: int):
     }
 
 
+LESSON_FIELDS = ("order", "title", "kind", "brief", "objectives", "content", "teaching_notes")
+
+
 @api(methods=("POST",), teach=True)
 def teach_lessons(request, course_id: int):
     course = _course(request, course_id)
     data = _body(request)
     data.setdefault("order", (course.lessons.order_by("-order").values_list("order", flat=True).first() or 0) + 1)
-    lesson = _apply(Lesson(course=course), data, ("order", "title", "brief", "objectives", "content", "teaching_notes"))
+    lesson = _apply(Lesson(course=course), data, LESSON_FIELDS)
     return JsonResponse(_lesson_payload(lesson), status=201)
 
 
@@ -726,7 +762,7 @@ def teach_lesson(request, lesson_id: int):
         lesson.delete()
         return {"ok": True}
     return _lesson_payload(
-        _apply(lesson, _body(request), ("order", "title", "brief", "objectives", "content", "teaching_notes"))
+        _apply(lesson, _body(request), LESSON_FIELDS)
     )
 
 

@@ -23,7 +23,7 @@ from django.utils import timezone
 from django.utils.html import escape
 
 from learn.models import Answer, Enrollment, Event, PackSubmission, Question, Quiz, QuizAttempt
-from learn.services import ServiceError, events, grading, quizzes
+from learn.services import ServiceError, events, grading, lesson_kinds, quizzes
 from learn.services.courses import BRIEF_RULES, enrollment_for_course, get_accessible_lesson
 
 SALT = "learnmcp.pack"
@@ -250,11 +250,13 @@ def lesson_prompt(enrollment, lesson_id: int, base_url: str) -> str:
             if questions:
                 manual.append((quiz, questions))
 
+    kind_rules = lesson_kinds.rules(lesson.kind)
     steps = [
-        "STEP 1 — LESSON. Teach the lesson below conversationally, one idea at a time. Check my understanding "
-        "with short questions and wait for my reply each time. Stay within the lesson. If I don't understand "
-        "something, explain it another way and remember it as a difficult concept. Move on when we have "
-        "covered it or I say I'm ready."
+        "STEP 1 — LESSON. "
+        + (kind_rules + " " if kind_rules else "Teach the lesson below conversationally, one idea at a time. ")
+        + "Check my understanding with short questions and wait for my reply each time. Stay within the lesson. "
+        "If I don't understand something, explain it another way and remember it as a difficult concept. "
+        "Move on when we have covered it or I say I'm ready."
     ]
     if ai_quizzes:
         listing = "\n".join(

@@ -12,7 +12,7 @@ export default function Settings() {
   const router = useRouter();
   const errorText = useErrorText();
   const { course, reload } = useCourse();
-  const [d, setD] = useState({ title: course.title, description: course.description });
+  const [d, setD] = useState({ title: course.title, description: course.description, listed: course.listed ?? true });
   const [errors, setErrors] = useState<Record<string, string[]>>({});
   const [error, setError] = useState("");
   const [saved, setSaved] = useState(false);
@@ -48,6 +48,18 @@ export default function Settings() {
           <Field label={t.teach.description} htmlFor="c-desc" error={errors.description}>
             <Textarea id="c-desc" rows={4} dir="auto" value={d.description} onChange={(e) => setD({ ...d, description: e.target.value })} />
           </Field>
+          <label className="mb-4 flex items-start gap-3">
+            <input
+              type="checkbox"
+              className="mt-1.5 h-4 w-4 accent-[var(--turquoise)]"
+              checked={d.listed}
+              onChange={(e) => setD({ ...d, listed: e.target.checked })}
+            />
+            <span>
+              {t.teach.settings.listedLabel}
+              <span className="block text-sm text-quiet">{t.teach.settings.listedHelp}</span>
+            </span>
+          </label>
           <Button type="submit">{t.common.save}</Button>
         </form>
       </Card>

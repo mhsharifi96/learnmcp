@@ -2,13 +2,13 @@
 
 import { useState } from "react";
 import { api, ApiError } from "@/lib/api";
-import type { Lesson } from "@/lib/types";
+import { LESSON_KINDS, type Lesson, type LessonKind } from "@/lib/types";
 import { useT } from "@/components/lang";
-import { Alert, Button, Card, Field, Input, Textarea, useErrorText } from "@/components/ui";
+import { Alert, Button, Card, Chip, Field, Input, Textarea, useErrorText } from "@/components/ui";
 import { useCourse } from "../course-context";
 
 type Draft = Omit<Lesson, "id">;
-const empty = (order: number): Draft => ({ order, title: "", brief: "", objectives: "", content: "", teaching_notes: "" });
+const empty = (order: number): Draft => ({ order, title: "", kind: "general", brief: "", objectives: "", content: "", teaching_notes: "" });
 
 function LessonForm({
   initial,
@@ -56,8 +56,29 @@ function LessonForm({
           <Input id="l-order" type="number" min={1} value={d.order} onChange={set("order")} />
         </Field>
       </div>
+      <fieldset className="mb-4">
+        <legend className="mb-2 font-medium text-ink">{L.kind}</legend>
+        <div className="flex flex-wrap gap-2" role="radiogroup">
+          {LESSON_KINDS.map((k) => (
+            <button
+              key={k}
+              type="button"
+              role="radio"
+              aria-checked={d.kind === k}
+              onClick={() => setD({ ...d, kind: k as LessonKind })}
+              className={`rounded-full border px-3 py-1.5 text-sm transition-colors ${
+                d.kind === k ? "border-lapis bg-lapis text-white" : "border-line bg-surface text-ink hover:border-lapis"
+              }`}
+            >
+              {t.kinds[k].label}
+            </button>
+          ))}
+        </div>
+        <p className="mt-2 text-sm text-quiet">{t.kinds[d.kind].help}</p>
+        {errors.kind && <p className="mt-1 text-sm text-danger">{errors.kind.join(" ")}</p>}
+      </fieldset>
       <Field label={L.brief} htmlFor="l-brief" help={L.briefHelp} error={errors.brief}>
-        <Textarea id="l-brief" rows={4} dir="auto" value={d.brief} onChange={set("brief")} placeholder={L.briefPh} />
+        <Textarea id="l-brief" rows={4} dir="auto" value={d.brief} onChange={set("brief")} placeholder={t.kinds[d.kind].ph} />
       </Field>
       <details className="mb-4 rounded-lg border border-line px-4 py-2" open={!!(d.content || d.objectives || d.teaching_notes)}>
         <summary className="cursor-pointer py-1 font-medium text-lapis">
@@ -136,8 +157,9 @@ export default function Lessons() {
                       {l.order.toLocaleString()}
                     </span>
                     <div className="min-w-0 flex-1">
-                      <h3 className="font-semibold text-ink" dir="auto">
-                        {l.title}
+                      <h3 className="flex flex-wrap items-center gap-2 font-semibold text-ink">
+                        <span dir="auto">{l.title}</span>
+                        {l.kind !== "general" && <Chip tone="info">{t.kinds[l.kind]?.label}</Chip>}
                       </h3>
                       <p className="line-clamp-2 text-sm text-quiet" dir="auto">
                         {l.brief || l.content}
