@@ -1,0 +1,5 @@
+{% extends "admin/login.html" %}
+{% block content %}
+{{ block.super }}
+<p style="margin-top:1.5rem;text-align:center">New instructor? <a href="{% url 'learn:signup' %}">Create an account</a></p>
+{% endblock %}

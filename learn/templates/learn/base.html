@@ -1,0 +1,29 @@
+{% load static %}<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}learnmcp{% endblock %}</title>
+  <link rel="stylesheet" href="{% static 'learn/site.css' %}">
+</head>
+<body>
+<header class="site"><div class="inner">
+  <a class="brand" href="{% url 'learn:home' %}">learnmcp</a>
+  <nav><a href="{% url 'learn:join_code' %}">Join a class</a><a href="{% url 'learn:me' %}">My data</a></nav>
+</div></header>
+<main>
+  {% if messages %}<ul class="messages">{% for m in messages %}<li class="{{ m.tags }}">{{ m }}</li>{% endfor %}</ul>{% endif %}
+  {% block content %}{% endblock %}
+</main>
+<script>
+document.querySelectorAll("[data-copy]").forEach(function (btn) {
+  btn.addEventListener("click", function () {
+    var el = document.getElementById(btn.dataset.copy);
+    navigator.clipboard.writeText(el.value).then(function () {
+      var t = btn.textContent; btn.textContent = "Copied"; setTimeout(function () { btn.textContent = t; }, 1500);
+    });
+  });
+});
+</script>
+</body>
+</html>

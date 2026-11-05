@@ -1,0 +1,12 @@
+{% extends "learn/base.html" %}
+{% block title %}Restore access · learnmcp{% endblock %}
+{% block content %}
+<div class="card">
+  <h1>Restore access to My data</h1>
+  <p class="muted">Paste the personal URL you added to your AI. It is checked and not stored in this browser.</p>
+  <form method="post">{% csrf_token %}
+    {% include "learn/_form_fields.html" %}
+    <p><button type="submit">Restore</button></p>
+  </form>
+</div>
+{% endblock %}

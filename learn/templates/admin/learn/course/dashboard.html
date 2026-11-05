@@ -1,0 +1,83 @@
+{% extends "admin/base_site.html" %}
+{% load i18n %}
+{% block extrastyle %}{{ block.super }}
+<style>
+  .lm-grid { display:grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; margin: 0 0 20px; }
+  .lm-stat { border:1px solid var(--hairline-color); border-radius:8px; padding:12px 14px; background: var(--body-bg); }
+  .lm-stat b { display:block; font-size: 1.6rem; line-height: 1.2; }
+  .lm-stat span { color: var(--body-quiet-color); font-size: .85rem; }
+  .lm-section { margin-bottom: 28px; }
+  .lm-section table { width: 100%; }
+  .lm-inactive { color: var(--error-fg); font-weight: 600; }
+  .lm-bar { display:inline-block; height: 8px; border-radius: 4px; background: var(--primary); vertical-align: middle; }
+</style>
+{% endblock %}
+{% block breadcrumbs %}
+<div class="breadcrumbs">
+  <a href="{% url 'admin:index' %}">{% translate 'Home' %}</a> ›
+  <a href="{% url 'admin:learn_course_changelist' %}">Classes</a> ›
+  <a href="{% url 'admin:learn_course_change' course.pk %}">{{ course.title }}</a> › Dashboard
+</div>
+{% endblock %}
+{% block content %}
+<div id="content-main">
+  <div class="lm-grid">
+    <div class="lm-stat"><b>{{ student_count }}</b><span>students</span></div>
+    <div class="lm-stat"><b>{{ inactive_count }}</b><span>inactive for {{ inactive_days }}+ days</span></div>
+    <div class="lm-stat"><b>{{ finished_attempts }}</b><span>finished quiz attempts</span></div>
+    <div class="lm-stat"><b><a href="{% url 'admin:learn_answer_changelist' %}?status__exact=needs_review">{{ needs_review_count }}</a></b><span>answers need review</span></div>
+    <div class="lm-stat"><b>{% if tool_calls_ok_percent is not None %}{{ tool_calls_ok_percent }}%{% else %}—{% endif %}</b><span>tool-call success ({{ tool_calls_total }} calls)</span></div>
+  </div>
+
+  <div class="lm-section module">
+    <h2>Students</h2>
+    <table>
+      <thead><tr><th>Student</th><th>Last activity</th><th>Avg. quiz score</th><th>Quizzes done</th><th>"Stuck" reports</th></tr></thead>
+      <tbody>
+      {% for s in students %}
+        <tr>
+          <td><a href="{% url 'admin:learn_enrollment_change' s.enrollment.pk %}">{{ s.name }}</a><br><span class="quiet">{{ s.email }}</span></td>
+          <td>{% if s.last_activity %}{{ s.last_activity|timesince }} ago{% else %}never{% endif %}{% if s.inactive %} <span class="lm-inactive">· inactive</span>{% endif %}</td>
+          <td>{% if s.avg_score_percent is not None %}{{ s.avg_score_percent }}%{% else %}—{% endif %}</td>
+          <td>{{ s.quizzes_done }}</td>
+          <td>{{ s.stuck_count }}</td>
+        </tr>
+      {% empty %}
+        <tr><td colspan="5">No students yet. Share the invite link from the <a href="{% url 'admin:learn_course_change' course.pk %}">class page</a> (code <strong>{{ course.join_code }}</strong>).</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <div class="lm-section module">
+    <h2>Most-missed questions</h2>
+    <table>
+      <thead><tr><th>Question</th><th>Quiz</th><th>Concept</th><th>Correct</th><th>Answers</th><th>Needs review</th></tr></thead>
+      <tbody>
+      {% for q in questions %}
+        <tr>
+          <td>{{ q.question.prompt|truncatechars:90 }}</td>
+          <td>{{ q.question.quiz.title }}</td>
+          <td>{{ q.question.concept|default:"—" }}</td>
+          <td><span class="lm-bar" style="width: {{ q.correct_rate }}px"></span> {{ q.correct_rate }}%</td>
+          <td>{{ q.answered }}</td>
+          <td>{{ q.needs_review }}</td>
+        </tr>
+      {% empty %}<tr><td colspan="6">No quiz answers yet.</td></tr>{% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <div class="lm-section module">
+    <h2>Most frequent "stuck" concepts</h2>
+    <table>
+      <thead><tr><th>Concept</th><th>Reports</th><th>Example notes</th></tr></thead>
+      <tbody>
+      {% for s in stuck %}
+        <tr><td>{{ s.concept }}</td><td>{{ s.count }}</td><td>{% for n in s.notes %}<div>{{ n }}</div>{% empty %}—{% endfor %}</td></tr>
+      {% empty %}<tr><td colspan="3">No "stuck" reports yet.</td></tr>{% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

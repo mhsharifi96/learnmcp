@@ -1,0 +1,20 @@
+{% extends "learn/base.html" %}
+{% block content %}
+<div class="card">
+  <h1>Learn with your own AI. Your instructor sees what matters.</h1>
+  <p class="muted">learnmcp connects your instructor's lessons and quizzes to the AI assistant you already use (Claude or ChatGPT), even on a free plan.</p>
+</div>
+<div class="two">
+  <div class="card">
+    <h2>I'm a student</h2>
+    <p>Got a class code or invite link from your instructor?</p>
+    <a class="btn" href="{% url 'learn:join_code' %}">Join a class</a>
+  </div>
+  <div class="card">
+    <h2>I'm an instructor</h2>
+    <p>Create a class, lessons and quizzes, then watch progress on your dashboard.</p>
+    <a class="btn" href="{% url 'learn:signup' %}">Create an account</a>
+    <p><a href="{% url 'admin:index' %}">Log in</a></p>
+  </div>
+</div>
+{% endblock %}

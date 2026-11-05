@@ -1,0 +1,45 @@
+{% extends "learn/base.html" %}
+{% block title %}My data · learnmcp{% endblock %}
+{% block content %}
+<div class="card">
+  <h1>My data</h1>
+  <p class="muted">Everything learnmcp recorded about you. Your conversations with your AI are never recorded.</p>
+  {% if not enrollments %}
+    <p>No classes in this browser. <a href="{% url 'learn:join_code' %}">Join a class</a> or <a href="{% url 'learn:restore' %}">restore access with your personal URL</a>.</p>
+  {% endif %}
+</div>
+
+{% for enr in enrollments %}
+<div class="card">
+  <h2>{{ enr.course.title }}</h2>
+  <p class="muted">Instructor: {{ enr.course.instructor.display_name }} · Joined {{ enr.joined_at|date:"M j, Y" }} as {{ enr.student.name }} ({{ enr.student.email }}) · Consent given {{ enr.consent_at|date:"M j, Y H:i" }}</p>
+  <p class="muted">Current URL ends in <code>…{{ enr.token_hint }}</code></p>
+
+  <h3>Quiz attempts</h3>
+  {% for attempt in enr.attempts.all %}
+    <p><strong>{{ attempt.quiz.title }}</strong> — started {{ attempt.started_at|date:"M j, H:i" }}{% if attempt.finished_at %}, score {{ attempt.score_percent }}%{% else %}, not finished{% endif %}</p>
+    <div class="overflow"><table>
+      <tr><th>Question</th><th>Your answer</th><th>Result</th></tr>
+      {% for a in attempt.answers.all %}
+        <tr><td>{{ a.question.prompt|truncatechars:80 }}</td><td>{{ a.raw_answer }}</td><td><span class="tag {{ a.status }}">{{ a.get_status_display }}</span></td></tr>
+      {% endfor %}
+    </table></div>
+  {% empty %}<p class="muted">No quiz attempts.</p>{% endfor %}
+
+  <h3>Events</h3>
+  <div class="overflow"><table>
+    <tr><th>When</th><th>What</th><th>Details</th><th>App</th></tr>
+    {% for ev in enr.events.all %}
+      <tr><td>{{ ev.created_at|date:"M j, H:i" }}</td><td>{{ ev.get_type_display }}</td>
+        <td>{% if ev.lesson %}{{ ev.lesson.title }}{% endif %}{% if ev.concept %} · concept: {{ ev.concept }}{% endif %}{% if ev.note %} · “{{ ev.note }}”{% endif %}</td>
+        <td>{{ ev.client|default:"—" }}</td></tr>
+    {% empty %}<tr><td colspan="4" class="muted">Nothing recorded yet.</td></tr>{% endfor %}
+  </table></div>
+
+  <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:16px">
+    <form method="post" action="{% url 'learn:regenerate' enr.id %}">{% csrf_token %}<button class="secondary" type="submit">Regenerate my URL</button></form>
+    <form method="post" action="{% url 'learn:leave' enr.id %}" onsubmit="return confirm('Leave {{ enr.course.title|escapejs }} and delete all data recorded for it? This cannot be undone.');">{% csrf_token %}<button class="danger" type="submit">Leave class and delete my data</button></form>
+  </div>
+</div>
+{% endfor %}
+{% endblock %}

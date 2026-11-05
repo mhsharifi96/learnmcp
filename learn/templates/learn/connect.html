@@ -1,0 +1,46 @@
+{% extends "learn/base.html" %}
+{% block title %}Connect your AI · learnmcp{% endblock %}
+{% block content %}
+<div class="card">
+  <h1>Connect your AI to {{ enrollment.course.title }}</h1>
+  {% if mcp_url %}
+    <p>This is your <strong>personal</strong> connection URL. Treat it like a password: anyone with it can act as you.</p>
+    <div class="urlbox">
+      <input type="text" id="mcp-url" value="{{ mcp_url }}" readonly>
+      <button type="button" data-copy="mcp-url">Copy</button>
+    </div>
+    <p class="muted" style="font-size:.9rem">It is shown only once. If you lose it, regenerate a new one on <a href="{% url 'learn:me' %}">My data</a>.</p>
+  {% else %}
+    <p>For your security, your URL is shown only once. You can <strong>regenerate</strong> a new one below (the old one stops working).</p>
+    <form method="post" action="{% url 'learn:regenerate' enrollment.id %}">{% csrf_token %}<button type="submit">Regenerate my URL</button></form>
+  {% endif %}
+  {% if other_classes %}
+    <p><strong>Already connected learnmcp for another class?</strong> Your existing connector already includes this class, so you don't need to add another one.</p>
+  {% endif %}
+</div>
+
+<div class="two">
+  <div class="card">
+    <h2>Claude (free or paid)</h2>
+    <ol class="steps">
+      <li>Open <a href="https://claude.ai/settings/connectors" target="_blank" rel="noopener">claude.ai → Settings → Connectors</a>.</li>
+      <li>Click <strong>Add custom connector</strong>.</li>
+      <li>Name it <code>learnmcp</code> and paste your URL.</li>
+      <li>Click <strong>Add</strong>. In a new chat, enable learnmcp in the tools menu.</li>
+      <li>Try: <em>"What are my lessons?"</em></li>
+    </ol>
+    <p class="muted" style="font-size:.9rem">The free plan allows one custom connector.</p>
+  </div>
+  <div class="card">
+    <h2>ChatGPT (Plus/Pro, web)</h2>
+    <ol class="steps">
+      <li>Go to <strong>Settings → Apps → Advanced settings</strong> and turn on <strong>Developer mode</strong>.</li>
+      <li>Click <strong>Create app</strong>, name it <code>learnmcp</code> and paste your URL.</li>
+      <li>Choose <strong>No authentication</strong>, confirm and create.</li>
+      <li>In a new chat, select learnmcp from the tools menu.</li>
+      <li>Try: <em>"Quiz me on lesson 1"</em></li>
+    </ol>
+  </div>
+</div>
+<p><a href="{% url 'learn:me' %}">Go to My data →</a></p>
+{% endblock %}

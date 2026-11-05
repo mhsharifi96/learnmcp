@@ -1,0 +1,11 @@
+{% extends "learn/base.html" %}
+{% block title %}Join a class · learnmcp{% endblock %}
+{% block content %}
+<div class="card">
+  <h1>Join a class</h1>
+  <form method="get">
+    {% include "learn/_form_fields.html" %}
+    <p><button type="submit">Continue</button></p>
+  </form>
+</div>
+{% endblock %}

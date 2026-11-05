@@ -1,0 +1,15 @@
+{% extends "admin/base.html" %}
+{% load static %}
+{% block title %}{% if subtitle %}{{ subtitle }} | {% endif %}{{ title }} | learnmcp{% endblock %}
+{% block extrastyle %}{{ block.super }}
+<style>
+  :root { --primary: #3b5bdb; --secondary: #364fc7; --header-bg: #1f2a5a; --link-fg: #3b5bdb; --link-hover-color: #1f2a5a; }
+  #branding h1 a { display: inline-flex; align-items: center; gap: .5rem; }
+  .learnmcp-logo { display: inline-block; width: 1.4rem; height: 1.4rem; border-radius: .35rem; background: #fff; color: #1f2a5a; font-weight: 800; text-align: center; line-height: 1.4rem; font-size: .85rem; }
+</style>
+{% endblock %}
+{% block branding %}
+<div id="site-name"><a href="{% url 'admin:index' %}"><span class="learnmcp-logo">L</span> {{ site_header|default:_('Django administration') }}</a></div>
+{% if user.is_anonymous %}{% include "admin/color_theme_toggle.html" %}{% endif %}
+{% endblock %}
+{% block nav-global %}{% endblock %}

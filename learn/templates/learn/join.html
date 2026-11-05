@@ -1,0 +1,43 @@
+{% extends "learn/base.html" %}
+{% block title %}Join {{ course.title }} · learnmcp{% endblock %}
+{% block content %}
+<div class="card">
+  <p class="muted">Class by {{ course.instructor.display_name }}</p>
+  <h1>{{ course.title }}</h1>
+  {% if course.description %}<p>{{ course.description|linebreaksbr }}</p>{% endif %}
+</div>
+
+<div class="card">
+  <h2>What is shared with your instructor</h2>
+  <div class="two">
+    <div>
+      <strong>Recorded</strong>
+      <ul>
+        <li>Your name and email</li>
+        <li>When you start a lesson</li>
+        <li>Your quiz answers and scores</li>
+        <li>Concepts you say you're stuck on (and the short note your AI sends)</li>
+        <li>Which AI app you used and when (for reliability)</li>
+      </ul>
+    </div>
+    <div>
+      <strong>Not recorded</strong>
+      <ul>
+        <li>Your conversation with your AI</li>
+        <li>Anything you ask that doesn't call a learnmcp tool</li>
+        <li>Other chats, files or connectors</li>
+      </ul>
+    </div>
+  </div>
+  <p class="muted">You can see everything recorded on the "My data" page, and leaving the class deletes it.</p>
+</div>
+
+<div class="card">
+  <h2>Your details</h2>
+  {% if linked %}<p class="muted">This class will be added to the same learnmcp connection you already use.</p>{% endif %}
+  <form method="post">{% csrf_token %}
+    {% include "learn/_form_fields.html" %}
+    <p><button type="submit">Join and get my connection URL</button></p>
+  </form>
+</div>
+{% endblock %}

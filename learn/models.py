@@ -1,0 +1,263 @@
+import secrets
+import string
+
+from django.conf import settings
+from django.core.exceptions import ValidationError
+from django.db import models
+from django.utils import timezone
+
+JOIN_CODE_ALPHABET = string.ascii_uppercase + string.digits
+# Avoid characters that are easy to confuse when read aloud or typed.
+JOIN_CODE_ALPHABET = "".join(c for c in JOIN_CODE_ALPHABET if c not in "O0I1L")
+
+
+def generate_join_code(length: int = 8) -> str:
+    return "".join(secrets.choice(JOIN_CODE_ALPHABET) for _ in range(length))
+
+
+class Instructor(models.Model):
+    user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="instructor")
+    display_name = models.CharField(max_length=120)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return self.display_name
+
+
+class Course(models.Model):
+    instructor = models.ForeignKey(Instructor, on_delete=models.CASCADE, related_name="courses")
+    title = models.CharField(max_length=200)
+    description = models.TextField(blank=True)
+    join_code = models.CharField(max_length=16, unique=True, editable=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+        verbose_name = "class"
+        verbose_name_plural = "classes"
+
+    def __str__(self):
+        return self.title
+
+    def save(self, *args, **kwargs):
+        if not self.join_code:
+            code = generate_join_code()
+            while Course.objects.filter(join_code=code).exists():
+                code = generate_join_code()
+            self.join_code = code
+        super().save(*args, **kwargs)
+
+
+class Lesson(models.Model):
+    course = models.ForeignKey(Course, on_delete=models.CASCADE, related_name="lessons")
+    order = models.PositiveIntegerField(default=1)
+    title = models.CharField(max_length=200)
+    objectives = models.TextField(blank=True, help_text="One objective per line.")
+    content = models.TextField(help_text="The lesson text the student's AI will teach from.")
+    teaching_notes = models.TextField(
+        blank=True,
+        help_text="Instructions for the AI tutor (tone, examples to use, common mistakes to watch for).",
+    )
+
+    class Meta:
+        ordering = ["course", "order", "id"]
+
+    def __str__(self):
+        return f"{self.order}. {self.title}"
+
+    @property
+    def objectives_list(self) -> list[str]:
+        return [line.strip("-• ").strip() for line in self.objectives.splitlines() if line.strip()]
+
+
+class Quiz(models.Model):
+    course = models.ForeignKey(Course, on_delete=models.CASCADE, related_name="quizzes")
+    lesson = models.ForeignKey(
+        Lesson, on_delete=models.SET_NULL, null=True, blank=True, related_name="quizzes"
+    )
+    title = models.CharField(max_length=200)
+
+    class Meta:
+        ordering = ["course", "lesson__order", "id"]
+        verbose_name_plural = "quizzes"
+
+    def __str__(self):
+        return self.title
+
+    def clean(self):
+        if self.lesson_id and self.course_id and self.lesson.course_id != self.course_id:
+            raise ValidationError({"lesson": "The lesson must belong to the same class."})
+
+
+class Question(models.Model):
+    MCQ = "mcq"
+    SHORT = "short"
+    TYPE_CHOICES = [(MCQ, "Multiple choice"), (SHORT, "Short answer")]
+
+    quiz = models.ForeignKey(Quiz, on_delete=models.CASCADE, related_name="questions")
+    order = models.PositiveIntegerField(default=1)
+    type = models.CharField(max_length=10, choices=TYPE_CHOICES, default=MCQ)
+    prompt = models.TextField()
+    options_json = models.JSONField(
+        default=list, blank=True, help_text='Multiple choice only. A JSON list, e.g. ["Paris", "Rome", "Madrid"].'
+    )
+    correct_answer = models.CharField(
+        max_length=500,
+        help_text="Multiple choice: the option letter (A, B, …) or the exact option text. Short answer: the model answer.",
+    )
+    accepted_answers_json = models.JSONField(
+        default=list, blank=True, help_text='Short answer: other accepted answers, e.g. ["H2O", "water"].'
+    )
+    explanation = models.TextField(blank=True, help_text="Shown to the student after they answer.")
+    concept = models.CharField(max_length=120, blank=True, help_text="The concept this question tests.")
+
+    class Meta:
+        ordering = ["quiz", "order", "id"]
+
+    def __str__(self):
+        return f"Q{self.order}: {self.prompt[:60]}"
+
+    def clean(self):
+        errors = {}
+        if not isinstance(self.options_json, list) or not all(isinstance(o, str) for o in self.options_json):
+            errors["options_json"] = "Options must be a JSON list of strings."
+        if not isinstance(self.accepted_answers_json, list) or not all(
+            isinstance(o, str) for o in self.accepted_answers_json
+        ):
+            errors["accepted_answers_json"] = "Accepted answers must be a JSON list of strings."
+        if self.type == self.MCQ and not errors.get("options_json"):
+            if len(self.options_json) < 2:
+                errors["options_json"] = "A multiple choice question needs at least two options."
+            else:
+                from learn.services.grading import resolve_mcq_correct_index
+
+                if resolve_mcq_correct_index(self) is None:
+                    errors["correct_answer"] = "Must be an option letter (A, B, …) or match one option's text."
+        if errors:
+            raise ValidationError(errors)
+
+
+class Student(models.Model):
+    name = models.CharField(max_length=120)
+    email = models.EmailField()
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"{self.name} <{self.email}>"
+
+
+class Enrollment(models.Model):
+    student = models.ForeignKey(Student, on_delete=models.CASCADE, related_name="enrollments")
+    course = models.ForeignKey(Course, on_delete=models.CASCADE, related_name="enrollments")
+    token_hash = models.CharField(max_length=64, unique=True, editable=False)
+    token_hint = models.CharField(max_length=8, blank=True, editable=False, help_text="Last characters of the token.")
+    consent_at = models.DateTimeField()
+    joined_at = models.DateTimeField(auto_now_add=True)
+    token_rotated_at = models.DateTimeField(null=True, blank=True)
+    last_activity_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        constraints = [models.UniqueConstraint(fields=["student", "course"], name="unique_student_course")]
+        ordering = ["-joined_at"]
+
+    def __str__(self):
+        return f"{self.student.name} in {self.course.title}"
+
+    def touch(self):
+        now = timezone.now()
+        Enrollment.objects.filter(pk=self.pk).update(last_activity_at=now)
+        self.last_activity_at = now
+
+
+class QuizAttempt(models.Model):
+    enrollment = models.ForeignKey(Enrollment, on_delete=models.CASCADE, related_name="attempts")
+    quiz = models.ForeignKey(Quiz, on_delete=models.CASCADE, related_name="attempts")
+    started_at = models.DateTimeField(auto_now_add=True)
+    finished_at = models.DateTimeField(null=True, blank=True)
+    score = models.FloatField(null=True, blank=True, help_text="Share of questions answered correctly (0–1).")
+
+    class Meta:
+        ordering = ["-started_at"]
+
+    def __str__(self):
+        return f"{self.quiz} — {self.enrollment.student.name}"
+
+    @property
+    def score_percent(self):
+        return None if self.score is None else round(self.score * 100)
+
+
+class Answer(models.Model):
+    CORRECT = "correct"
+    INCORRECT = "incorrect"
+    NEEDS_REVIEW = "needs_review"
+    STATUS_CHOICES = [(CORRECT, "Correct"), (INCORRECT, "Incorrect"), (NEEDS_REVIEW, "Needs review")]
+
+    attempt = models.ForeignKey(QuizAttempt, on_delete=models.CASCADE, related_name="answers")
+    question = models.ForeignKey(Question, on_delete=models.CASCADE, related_name="answers")
+    raw_answer = models.TextField()
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES)
+    answered_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        constraints = [models.UniqueConstraint(fields=["attempt", "question"], name="unique_attempt_question")]
+        ordering = ["answered_at"]
+
+    def __str__(self):
+        return f"{self.question} → {self.raw_answer[:40]}"
+
+    @property
+    def is_correct(self) -> bool | None:
+        if self.status == self.NEEDS_REVIEW:
+            return None
+        return self.status == self.CORRECT
+
+
+class Event(models.Model):
+    LESSON_STARTED = "lesson_started"
+    STUCK = "stuck"
+    PROGRESS_VIEWED = "progress_viewed"
+    QUIZ_STARTED = "quiz_started"
+    QUIZ_FINISHED = "quiz_finished"
+    TYPE_CHOICES = [
+        (LESSON_STARTED, "Lesson started"),
+        (STUCK, "Stuck"),
+        (PROGRESS_VIEWED, "Progress viewed"),
+        (QUIZ_STARTED, "Quiz started"),
+        (QUIZ_FINISHED, "Quiz finished"),
+    ]
+
+    enrollment = models.ForeignKey(Enrollment, on_delete=models.CASCADE, related_name="events")
+    type = models.CharField(max_length=30, choices=TYPE_CHOICES)
+    lesson = models.ForeignKey(Lesson, on_delete=models.SET_NULL, null=True, blank=True, related_name="events")
+    concept = models.CharField(max_length=200, blank=True)
+    note = models.TextField(blank=True)
+    client = models.CharField(max_length=30, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+        indexes = [models.Index(fields=["enrollment", "type"])]
+
+    def __str__(self):
+        return f"{self.get_type_display()} — {self.enrollment}"
+
+
+class ToolCall(models.Model):
+    """Audit log of every MCP tool call (PRD §10), used for the tool-call success metric."""
+
+    enrollment = models.ForeignKey(
+        Enrollment, on_delete=models.CASCADE, null=True, blank=True, related_name="tool_calls"
+    )
+    tool = models.CharField(max_length=60)
+    client = models.CharField(max_length=30, blank=True)
+    ok = models.BooleanField(default=True)
+    error = models.CharField(max_length=300, blank=True)
+    duration_ms = models.PositiveIntegerField(default=0)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"{self.tool} ({'ok' if self.ok else 'error'})"
