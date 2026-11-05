@@ -446,6 +446,9 @@ def _submit_quiz(enrollment, quiz_id: int, data: dict, client: str) -> QuizAttem
         for q in questions:
             raw = answers.get(q.id, "")
             status = grading.grade(q, raw) if raw else Answer.INCORRECT
+            letters = [grading.option_letter(i) for i in range(len(q.options_json))]
+            if q.type == Question.MCQ and raw.upper() in letters:
+                raw = f"{raw.upper()}) {q.options_json[letters.index(raw.upper())]}"
             Answer.objects.create(attempt=attempt, question=q, raw_answer=raw or "—", status=status)
         total = len(questions)
 
