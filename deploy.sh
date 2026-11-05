@@ -239,9 +239,12 @@ cmd_deploy() {
   if docker image inspect learnmcp:latest >/dev/null 2>&1; then
     docker tag learnmcp:latest learnmcp:previous
   fi
+  if docker image inspect learnmcp-frontend:latest >/dev/null 2>&1; then
+    docker tag learnmcp-frontend:latest learnmcp-frontend:previous
+  fi
 
-  info "Building image"
-  IMAGE_TAG=latest compose build --pull web
+  info "Building images"
+  IMAGE_TAG=latest compose build --pull web frontend
 
   info "Starting services"
   IMAGE_TAG=latest compose up -d --remove-orphans
@@ -257,7 +260,7 @@ cmd_rollback() {
   require_docker; require_env
   docker image inspect learnmcp:previous >/dev/null 2>&1 || die "No previous image (learnmcp:previous) to roll back to."
   warn "Rolling back the web image. Database migrations are NOT reverted; restore a backup if needed."
-  IMAGE_TAG=previous compose up -d --no-build web
+  IMAGE_TAG=previous compose up -d --no-build web frontend
   wait_healthy && ok "Rolled back to learnmcp:previous"
 }
 
@@ -285,7 +288,7 @@ Deploy
   rollback                  Restart the previous web image
   up | down | restart       Start / stop / restart services without rebuilding
   status                    Show containers and health
-  logs [service]            Follow logs (web, db, caddy)
+  logs [service]            Follow logs (web, frontend, gateway, db, caddy)
 
 Operations
   migrate                   Run Django migrations

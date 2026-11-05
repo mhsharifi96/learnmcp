@@ -1,4 +1,4 @@
-"""learnmcp MCP server: six tools that call the synchronous Django services."""
+"""learnmcp MCP server: seven tools that call the synchronous Django services."""
 
 import logging
 import time
@@ -27,8 +27,11 @@ INVALID_CONNECTION = (
 INSTRUCTIONS = """learnmcp connects this student to the course their instructor teaches.
 - Use list_my_courses when the student asks about their course, lessons, or what to do.
 - Use get_lesson to teach a lesson; follow its how_to_teach rules.
-- Quizzes are graded by the server: start_quiz, then ask ONE question at a time, wait for the reply,
-  and pass it unchanged to submit_answer. Never answer for the student or grade answers yourself.
+- Some lessons contain only the instructor's short prompt: then build the lesson plan yourself from it.
+- Quizzes: call start_quiz and follow its instructions. Instructor-written quizzes are graded by the server:
+  ask ONE question at a time, wait for the reply and pass it unchanged to submit_answer; never grade it yourself.
+  AI-generated quizzes (mode "ai_generated"): write one question at a time from the instructor's prompt,
+  wait for the reply, judge it, and record it with record_ai_answer. Never answer for the student.
 - When the student says they don't understand or keeps missing a concept, call report_stuck, then explain.
 - Use get_progress when the student asks where they are or what's next.
 Only explicit tool calls are shared with the instructor; the conversation itself is not recorded."""
@@ -121,10 +124,12 @@ async def get_lesson(lesson_id: int, ctx: Context) -> dict[str, Any]:
 
 @mcp.tool(title="Start quiz", annotations=WRITE, structured_output=True)
 async def start_quiz(quiz_id: int, ctx: Context) -> dict[str, Any]:
-    """Start (or resume) a quiz the instructor assigned. Returns attempt_id and the first question.
+    """Start (or resume) a quiz the instructor assigned. Returns attempt_id and instructions.
 
-    Call this when the student asks to be quizzed or tested. Ask the returned question exactly,
-    then STOP and wait for the student's answer. Never answer it yourself."""
+    Call this when the student asks to be quizzed or tested. For instructor-written quizzes it returns
+    the first question: ask it exactly, then STOP and wait for the student's answer. For AI-generated
+    quizzes (mode "ai_generated") it returns the instructor's prompt: write the questions yourself,
+    one at a time, and record each answer with record_ai_answer. Never answer for the student."""
     return await _call(ctx, "start_quiz", quizzes.start, quiz_id=quiz_id)
 
 
@@ -137,6 +142,40 @@ async def submit_answer(attempt_id: int, question_id: int, answer: str, ctx: Con
     tell the student the returned result and explanation, then ask the next_question."""
     return await _call(
         ctx, "submit_answer", quizzes.grade_and_next, attempt_id=attempt_id, question_id=question_id, answer=answer
+    )
+
+
+@mcp.tool(title="Record AI quiz answer", annotations=WRITE, structured_output=True)
+async def record_ai_answer(
+    attempt_id: int,
+    question: str,
+    correct_answer: str,
+    student_answer: str,
+    is_correct: bool,
+    ctx: Context,
+    options: list[str] | None = None,
+    explanation: str = "",
+    concept: str = "",
+) -> dict[str, Any]:
+    """Record one question of an AI-generated quiz (start_quiz returned mode "ai_generated").
+
+    Call this after EVERY student answer in such a quiz. question: the exact question you asked.
+    options: the answer options for multiple choice, in order (omit for short answers).
+    correct_answer: the right answer. student_answer: the student's reply, unchanged.
+    is_correct: your fair judgement of the reply. explanation: one line shown to the instructor.
+    concept: a few words naming what the question tests. Then follow the returned instructions."""
+    return await _call(
+        ctx,
+        "record_ai_answer",
+        quizzes.record_ai_answer,
+        attempt_id=attempt_id,
+        question=question,
+        correct_answer=correct_answer,
+        student_answer=student_answer,
+        is_correct=is_correct,
+        options=options,
+        explanation=explanation,
+        concept=concept,
     )
 
 

@@ -39,7 +39,8 @@ async def test_tool_list_is_small_and_described():
     async with Client(mcp) as client:
         tools = (await client.list_tools()).tools
     assert {t.name for t in tools} == {
-        "list_my_courses", "get_lesson", "start_quiz", "submit_answer", "report_stuck", "get_progress",
+        "list_my_courses", "get_lesson", "start_quiz", "submit_answer", "record_ai_answer", "report_stuck",
+        "get_progress",
     }
     for tool in tools:
         assert "Call" in (tool.description or "")
@@ -192,3 +193,57 @@ async def test_rate_limit_per_token():
     assert codes_a == [200, 200, 429]
     assert code_b == 200
     assert seen == [tok_a, tok_a, tok_b]
+
+
+async def test_ai_quiz_and_prompt_only_lesson(as_student, course_setup):
+    from learn.models import Lesson, Question, Quiz, QuizAttempt
+
+    course = course_setup[0]
+
+    def setup():
+        lesson = Lesson.objects.create(course=course, order=3, title="Past simple", brief="A2: past simple, irregular verbs")
+        quiz = Quiz.objects.create(
+            course=course, lesson=lesson, title="AI quiz", mode=Quiz.AI, prompt="2 questions on irregular verbs",
+            ai_question_count=2,
+        )
+        return lesson, quiz
+
+    lesson, quiz = await sync_to_async(setup)()
+    async with Client(mcp) as client:
+        got = payload(await client.call_tool("get_lesson", {"lesson_id": lesson.id}))
+        assert got["content"] is None and got["instructor_lesson_prompt"].startswith("A2")
+        assert "lesson plan" in got["how_to_teach"] and got["quizzes"][0]["ai_generated"]
+
+        listed = payload(await client.call_tool("list_my_courses", {}))
+        ai_entry = listed["courses"][0]["lessons"][2]["quizzes"][0]
+        assert ai_entry["ai_generated"] and ai_entry["questions"] == 2
+
+        started = payload(await client.call_tool("start_quiz", {"quiz_id": quiz.id}))
+        assert started["mode"] == "ai_generated" and started["instructor_prompt"].startswith("2 questions")
+        aid = started["attempt_id"]
+
+        bad = await client.call_tool("submit_answer", {"attempt_id": aid, "question_id": 1, "answer": "x"})
+        assert bad.is_error and "record_ai_answer" in error_text(bad)
+
+        r1 = payload(await client.call_tool("record_ai_answer", {
+            "attempt_id": aid, "question": "Past of 'go'?", "options": ["goed", "went", "gone"],
+            "correct_answer": "B", "student_answer": "went", "is_correct": True, "concept": "irregular verbs",
+        }))
+        assert r1["result"] == "correct" and not r1["finished"]
+
+        resumed = payload(await client.call_tool("start_quiz", {"quiz_id": quiz.id}))
+        assert resumed["resumed_unfinished_attempt"] and resumed["already_asked"] == ["Past of 'go'?"]
+
+        r2 = payload(await client.call_tool("record_ai_answer", {
+            "attempt_id": aid, "question": "Past of 'see'?", "correct_answer": "saw",
+            "student_answer": "seed", "is_correct": False,
+        }))
+        assert r2["finished"] and r2["score"]["score_percent"] == 50
+
+    def check():
+        attempt = QuizAttempt.objects.get(pk=aid)
+        assert attempt.score == 0.5 and attempt.generated_questions.count() == 2
+        assert attempt.generated_questions.get(order=1).type == Question.MCQ
+        assert quiz.manual_questions().count() == 0
+
+    await sync_to_async(check)()

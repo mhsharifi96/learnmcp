@@ -125,3 +125,32 @@ def test_student_cannot_touch_other_class_or_attempt(enrolled, course_setup, oth
     attempt = quizzes.start(enrollment, course_setup[3].id)
     with pytest.raises(ServiceError, match="not found"):
         quizzes.grade_and_next(intruder, attempt["attempt_id"], attempt["question"]["question_id"], "B")
+
+
+def test_ai_quiz_and_lesson_validation(course_setup):
+    import pytest as _pytest
+    from django.core.exceptions import ValidationError
+
+    from learn.models import Lesson, Quiz
+
+    course = course_setup[0]
+    with _pytest.raises(ValidationError):
+        Quiz(course=course, title="x", mode=Quiz.AI, prompt="").clean()
+    Quiz(course=course, title="x", mode=Quiz.AI, prompt="5 questions", ai_question_count=5).clean()
+    with _pytest.raises(ValidationError):
+        Lesson(course=course, title="empty").clean()
+    Lesson(course=course, title="brief only", brief="Teach greetings").clean()
+
+
+def test_build_english_course(course_setup):
+    from django.core.management import call_command
+
+    from learn.models import Quiz
+
+    course = course_setup[0]
+    call_command("build_english_course", "--join-code", course.join_code)
+    course.refresh_from_db()
+    lessons = list(course.lessons.order_by("order"))
+    assert len(lessons) == 13 and lessons[0].title.startswith("Placement")
+    assert all(not lesson.content and lesson.brief for lesson in lessons)
+    assert course.quizzes.count() == 13 and not course.quizzes.exclude(mode=Quiz.AI).exists()

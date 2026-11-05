@@ -10,3 +10,4 @@ backups
 .env.*
 !.env.example
 prd.md
+frontend

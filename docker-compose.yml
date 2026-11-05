@@ -27,8 +27,25 @@ services:
     depends_on:
       db:
         condition: service_healthy
+
+  frontend:
+    build: ./frontend
+    image: learnmcp-frontend:${IMAGE_TAG:-latest}
+    restart: unless-stopped
+
+  # Routes /api, /admin, /s/ (MCP), OAuth and /static to Django and everything else to Next.js.
+  gateway:
+    image: nginx:1.27-alpine
+    restart: unless-stopped
+    volumes:
+      - ./docker/gateway.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+      web:
+        condition: service_healthy
+      frontend:
+        condition: service_healthy
     ports:
-      # Bound to localhost by default; Caddy (profile "https") is the public entry point.
+      # Bound to localhost by default; Caddy (profile "https") or the host nginx is the public entry point.
       - "${WEB_BIND:-127.0.0.1}:${WEB_PORT:-8000}:8000"
 
   caddy:
@@ -46,8 +63,7 @@ services:
       - caddy_data:/data
       - caddy_config:/config
     depends_on:
-      web:
-        condition: service_healthy
+      - gateway
 
 volumes:
   pgdata:

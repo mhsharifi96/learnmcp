@@ -4,10 +4,12 @@ Every ModelAdmin is scoped so an instructor only sees and edits their own classe
 (PRD §10). Superusers (the platform operator) see everything.
 """
 
+import json
+
 from django import forms
 from django.contrib import admin, messages
 from django.db import models
-from django.db.models import Count
+from django.db.models import Count, Q
 from django.http import Http404
 from django.template.response import TemplateResponse
 from django.urls import path, reverse
@@ -86,7 +88,7 @@ class ReadOnlyInline(admin.TabularInline):
 class LessonInline(InstructorScopedMixin, admin.StackedInline):
     model = Lesson
     extra = 0
-    fields = ("order", "title", "objectives", "content", "teaching_notes")
+    fields = ("order", "title", "brief", "objectives", "content", "teaching_notes")
     show_change_link = True
     formfield_overrides = {models.TextField: {"widget": forms.Textarea(attrs={"rows": 4, "cols": 90})}}
 
@@ -94,13 +96,15 @@ class LessonInline(InstructorScopedMixin, admin.StackedInline):
 class QuizInline(InstructorScopedMixin, admin.TabularInline):
     model = Quiz
     extra = 0
-    fields = ("title", "lesson", "question_count")
+    fields = ("title", "lesson", "mode", "question_count")
     readonly_fields = ("question_count",)
     show_change_link = True
 
     @admin.display(description="Questions")
     def question_count(self, obj):
-        return obj.questions.count() if obj.pk else "—"
+        if not obj.pk:
+            return "—"
+        return f"{obj.ai_question_count} (AI)" if obj.is_ai else obj.manual_questions().count()
 
     def formfield_for_foreignkey(self, db_field, request, **kwargs):
         field = super().formfield_for_foreignkey(db_field, request, **kwargs)
@@ -210,21 +214,69 @@ class CourseAdmin(InstructorScopedMixin, admin.ModelAdmin):
 @admin.register(Lesson)
 class LessonAdmin(InstructorScopedMixin, admin.ModelAdmin):
     list_display = ("title", "course", "order")
+    fields = ("course", "order", "title", "brief", "objectives", "content", "teaching_notes")
     list_filter = (("course", admin.RelatedOnlyFieldListFilter),)
     search_fields = ("title", "content")
     ordering = ("course", "order")
 
 
+class LinesListField(forms.CharField):
+    """Edits a JSON list of strings as plain text, one item per line.
+
+    A pasted JSON list (["a", "b"]) is still accepted for backwards compatibility.
+    """
+
+    widget = forms.Textarea
+
+    def __init__(self, **kwargs):
+        kwargs.setdefault("required", False)
+        kwargs.setdefault("strip", False)
+        super().__init__(**kwargs)
+
+    def prepare_value(self, value):
+        if isinstance(value, list):
+            return "\n".join(str(v) for v in value)
+        if isinstance(value, str) and value.strip().startswith("["):
+            try:
+                return "\n".join(str(v) for v in json.loads(value))
+            except ValueError:
+                return value
+        return value or ""
+
+    def to_python(self, value):
+        text = (value or "").strip()
+        if text.startswith("["):
+            try:
+                data = json.loads(text)
+            except ValueError:
+                data = None
+            if isinstance(data, list):
+                return [str(v).strip() for v in data if str(v).strip()]
+        return [line.strip() for line in text.splitlines() if line.strip()]
+
+    def has_changed(self, initial, data):
+        return self.to_python(self.prepare_value(initial)) != self.to_python(data)
+
+
 class QuestionForm(forms.ModelForm):
+    options_json = LinesListField(
+        label="Options",
+        help_text="Multiple choice only. One option per line (first line = A, second = B, …).",
+        widget=forms.Textarea(attrs={"rows": 4, "cols": 28, "placeholder": "Paris\nRome\nMadrid"}),
+    )
+    accepted_answers_json = LinesListField(
+        label="Other accepted answers",
+        help_text="Short answer only. One answer per line.",
+        widget=forms.Textarea(attrs={"rows": 3, "cols": 22, "placeholder": "H2O\nwater"}),
+    )
+
     class Meta:
         model = Question
         fields = "__all__"
         widgets = {
             "prompt": forms.Textarea(attrs={"rows": 2, "cols": 40}),
-            "options_json": forms.Textarea(attrs={"rows": 2, "cols": 30}),
-            "accepted_answers_json": forms.Textarea(attrs={"rows": 2, "cols": 24}),
             "explanation": forms.Textarea(attrs={"rows": 2, "cols": 30}),
-            "correct_answer": forms.TextInput(attrs={"size": 14}),
+            "correct_answer": forms.TextInput(attrs={"size": 14, "placeholder": "B"}),
             "concept": forms.TextInput(attrs={"size": 14}),
             "order": forms.NumberInput(attrs={"style": "width:4em"}),
         }
@@ -234,6 +286,10 @@ class QuestionInline(admin.TabularInline):
     model = Question
     form = QuestionForm
     extra = 1
+    verbose_name_plural = "Questions (only for “I write the questions” mode)"
+
+    def get_queryset(self, request):
+        return super().get_queryset(request).filter(attempt__isnull=True)
     fields = (
         "order",
         "type",
@@ -252,13 +308,21 @@ class QuizAdmin(InstructorScopedMixin, admin.ModelAdmin):
     list_filter = (("course", admin.RelatedOnlyFieldListFilter),)
     search_fields = ("title",)
     inlines = [QuestionInline]
+    fields = ("course", "lesson", "title", "mode", "prompt", "ai_question_count")
+    radio_fields = {"mode": admin.VERTICAL}
+    formfield_overrides = {models.TextField: {"widget": forms.Textarea(attrs={"rows": 4, "cols": 90})}}
+
+    class Media:
+        js = ("learn/admin.js",)
 
     def get_queryset(self, request):
-        return super().get_queryset(request).annotate(_questions=Count("questions"))
+        return super().get_queryset(request).annotate(
+            _questions=Count("questions", filter=Q(questions__attempt__isnull=True))
+        )
 
     @admin.display(description="Questions", ordering="_questions")
     def question_count(self, obj):
-        return obj._questions
+        return f"{obj.ai_question_count} (AI)" if obj.is_ai else obj._questions
 
 
 @admin.register(Question)

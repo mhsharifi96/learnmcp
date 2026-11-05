@@ -6,7 +6,7 @@ connector, so the token gives access to every class the same student joined
 time, never by unverified email).
 """
 
-from django.db.models import Count, Prefetch
+from django.db.models import Count, Prefetch, Q
 
 from learn.models import Enrollment, Event, Lesson, Quiz, QuizAttempt
 from learn.services import ServiceError, events
@@ -15,14 +15,22 @@ LESSON_NOT_STARTED = "not_started"
 LESSON_STARTED = "started"
 LESSON_QUIZ_DONE = "quiz_done"
 
+BRIEF_RULES = (
+    "The instructor wrote only a short lesson prompt (instructor_lesson_prompt), not the full lesson. "
+    "First build a lesson plan from it yourself: 3-5 clear objectives, a simple explanation, worked examples "
+    "and short practice tasks suited to the stated level. Briefly tell the student what the lesson will cover, "
+    "then teach it. "
+)
+
 TEACHING_RULES = (
     "Teach this lesson conversationally, one idea at a time, and check understanding with short questions. "
     "Stay within the lesson content and objectives. "
     "If the student says they don't understand something, or keeps getting one concept wrong, "
     "call report_stuck with that concept FIRST, then explain it another way. "
     "When the student is ready to be tested, call start_quiz with the quiz_id listed below. "
-    "During a quiz: ask ONE question at a time, wait for the student's reply, and send it to submit_answer "
-    "exactly as they wrote it. Never answer quiz questions for the student and never judge answers yourself."
+    "During a quiz follow the instructions start_quiz returns: for instructor-written quizzes ask ONE question "
+    "at a time and send the reply unchanged to submit_answer (never judge it yourself); for AI-generated "
+    "quizzes write the questions yourself and record each answer with record_ai_answer."
 )
 
 
@@ -75,7 +83,13 @@ def lesson_statuses(enrollment_ids) -> dict[int, str]:
 
 
 def _quiz_summary(quiz, finished_scores: dict[int, float]) -> dict:
-    data = {"quiz_id": quiz.id, "title": quiz.title, "questions": quiz.num_questions}
+    data = {
+        "quiz_id": quiz.id,
+        "title": quiz.title,
+        "questions": quiz.ai_question_count if quiz.is_ai else quiz.num_questions,
+    }
+    if quiz.is_ai:
+        data["ai_generated"] = True
     if quiz.id in finished_scores:
         data["best_score_percent"] = round(finished_scores[quiz.id] * 100)
     return data
@@ -93,7 +107,7 @@ def list_courses(enrollment) -> dict:
         finished_scores[quiz_id] = max(finished_scores.get(quiz_id, 0.0), score or 0.0)
 
 
-    quizzes_qs = Quiz.objects.annotate(num_questions=Count("questions"))
+    quizzes_qs = Quiz.objects.annotate(num_questions=Count("questions", filter=Q(questions__attempt__isnull=True)))
     courses = []
     for enr in enrollments:
         course = enr.course
@@ -141,11 +155,14 @@ def get_lesson(enrollment, lesson_id: int, *, client: str = "") -> dict:
         "course": lesson.course.title,
         "title": lesson.title,
         "objectives": lesson.objectives_list,
-        "content": lesson.content,
+        "instructor_lesson_prompt": lesson.brief or None,
+        "content": lesson.content or None,
         "instructor_teaching_notes": lesson.teaching_notes,
-        "quizzes": [{"quiz_id": q.id, "title": q.title} for q in lesson.quizzes.all()],
+        "quizzes": [
+            {"quiz_id": q.id, "title": q.title, "ai_generated": q.is_ai} for q in lesson.quizzes.all()
+        ],
         "next_lesson": (
             {"lesson_id": next_lesson.id, "title": next_lesson.title} if next_lesson else None
         ),
-        "how_to_teach": TEACHING_RULES,
+        "how_to_teach": (BRIEF_RULES if not lesson.content.strip() else "") + TEACHING_RULES,
     }

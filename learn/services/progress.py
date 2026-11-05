@@ -105,7 +105,7 @@ def course_dashboard(course) -> dict:
         )
 
     question_stats = (
-        Question.objects.filter(quiz__course=course)
+        Question.objects.filter(quiz__course=course, attempt__isnull=True)
         .annotate(
             answered=Count("answers"),
             correct=Count("answers", filter=Q(answers__status=Answer.CORRECT)),

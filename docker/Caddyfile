@@ -1,7 +1,7 @@
 # Automatic HTTPS (Let's Encrypt) in front of learnmcp. DOMAIN must point at this host.
 {$DOMAIN} {
 	encode zstd gzip
-	reverse_proxy web:8000 {
+	reverse_proxy gateway:8000 {
 		# Stream MCP responses without buffering.
 		flush_interval -1
 	}

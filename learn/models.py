@@ -53,7 +53,19 @@ class Lesson(models.Model):
     order = models.PositiveIntegerField(default=1)
     title = models.CharField(max_length=200)
     objectives = models.TextField(blank=True, help_text="One objective per line.")
-    content = models.TextField(help_text="The lesson text the student's AI will teach from.")
+    brief = models.TextField(
+        "lesson prompt",
+        blank=True,
+        help_text=(
+            "A short prompt describing the lesson (topic, level, focus). If the lesson text below is empty, "
+            "the student's AI builds the full lesson plan from this prompt."
+        ),
+    )
+    content = models.TextField(
+        "lesson text",
+        blank=True,
+        help_text="Optional. Write the full lesson yourself, or leave empty to let the AI build it from the prompt.",
+    )
     teaching_notes = models.TextField(
         blank=True,
         help_text="Instructions for the AI tutor (tone, examples to use, common mistakes to watch for).",
@@ -70,12 +82,35 @@ class Lesson(models.Model):
         return [line.strip("-• ").strip() for line in self.objectives.splitlines() if line.strip()]
 
 
+    def clean(self):
+        if not self.brief.strip() and not self.content.strip():
+            raise ValidationError({"brief": "Write a lesson prompt or the full lesson text."})
+
+
 class Quiz(models.Model):
+    MANUAL = "manual"
+    AI = "ai"
+    MODE_CHOICES = [
+        (MANUAL, "I write the questions (graded by the server)"),
+        (AI, "The AI writes the questions from my prompt"),
+    ]
+
     course = models.ForeignKey(Course, on_delete=models.CASCADE, related_name="quizzes")
     lesson = models.ForeignKey(
         Lesson, on_delete=models.SET_NULL, null=True, blank=True, related_name="quizzes"
     )
     title = models.CharField(max_length=200)
+    mode = models.CharField(max_length=10, choices=MODE_CHOICES, default=MANUAL)
+    prompt = models.TextField(
+        blank=True,
+        help_text=(
+            "AI mode only. Describe the quiz you want, e.g. \"8 questions on the past simple, mix multiple choice "
+            "and fill-in-the-gap, A2 level, focus on irregular verbs\"."
+        ),
+    )
+    ai_question_count = models.PositiveSmallIntegerField(
+        "number of questions", default=5, help_text="AI mode only. How many questions the AI asks."
+    )
 
     class Meta:
         ordering = ["course", "lesson__order", "id"]
@@ -84,9 +119,24 @@ class Quiz(models.Model):
     def __str__(self):
         return self.title
 
+    @property
+    def is_ai(self) -> bool:
+        return self.mode == self.AI
+
+    def manual_questions(self):
+        return self.questions.filter(attempt__isnull=True)
+
     def clean(self):
+        errors = {}
         if self.lesson_id and self.course_id and self.lesson.course_id != self.course_id:
-            raise ValidationError({"lesson": "The lesson must belong to the same class."})
+            errors["lesson"] = "The lesson must belong to the same class."
+        if self.mode == self.AI:
+            if not self.prompt.strip():
+                errors["prompt"] = "Write a prompt for the AI to build the quiz from."
+            if not 1 <= (self.ai_question_count or 0) <= 50:
+                errors["ai_question_count"] = "Choose between 1 and 50 questions."
+        if errors:
+            raise ValidationError(errors)
 
 
 class Question(models.Model):
@@ -95,6 +145,14 @@ class Question(models.Model):
     TYPE_CHOICES = [(MCQ, "Multiple choice"), (SHORT, "Short answer")]
 
     quiz = models.ForeignKey(Quiz, on_delete=models.CASCADE, related_name="questions")
+    attempt = models.ForeignKey(
+        "QuizAttempt",
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name="generated_questions",
+        help_text="Set for questions the student's AI generated during this attempt (AI-mode quizzes).",
+    )
     order = models.PositiveIntegerField(default=1)
     type = models.CharField(max_length=10, choices=TYPE_CHOICES, default=MCQ)
     prompt = models.TextField()

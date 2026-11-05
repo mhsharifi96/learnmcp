@@ -136,3 +136,12 @@ LOGGING = {
     "root": {"handlers": ["console"], "level": os.environ.get("LOG_LEVEL", "INFO")},
     "loggers": {"django.db.backends": {"level": "WARNING"}},
 }
+
+# Hosts allowed as OAuth redirect targets for the auto-approving OAuth shim (learn/oauth.py).
+OAUTH_REDIRECT_HOSTS = [
+    h.strip().lower()
+    for h in os.environ.get("OAUTH_REDIRECT_HOSTS", "claude.ai,claude.com,anthropic.com,chatgpt.com,openai.com").split(",")
+    if h.strip()
+]
+
+CSRF_FAILURE_VIEW = "learn.api.csrf_failure"

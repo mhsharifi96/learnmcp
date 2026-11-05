@@ -1,5 +1,11 @@
-"""Server-side quizzes (PRD §5): questions come from the server, answers go back,
-grading happens here. The correct answer is never returned before the student answers.
+"""Quizzes.
+
+Manual quizzes (PRD §5): questions come from the server, answers go back, grading happens here.
+The correct answer is never returned before the student answers.
+
+AI quizzes: the instructor only writes a prompt. The student's AI writes and grades the questions
+one at a time and records each one with record_ai_answer, so the instructor still sees every
+question, answer and score.
 """
 
 from django.db import transaction
@@ -35,7 +41,7 @@ def question_payload(question: Question, number: int, total: int) -> dict:
 
 
 def _questions(quiz) -> list[Question]:
-    return list(quiz.questions.order_by("order", "id"))
+    return list(quiz.manual_questions().order_by("order", "id"))
 
 
 def _next_question(attempt, questions):
@@ -58,7 +64,8 @@ def _score_summary(attempt, questions) -> dict:
 
 
 def recompute_score(attempt: QuizAttempt) -> None:
-    total = attempt.quiz.questions.count()
+    quiz = attempt.quiz
+    total = quiz.ai_question_count if quiz.is_ai else quiz.manual_questions().count()
     if attempt.finished_at and total:
         correct = attempt.answers.filter(status=Answer.CORRECT).count()
         attempt.score = correct / total
@@ -74,6 +81,8 @@ def start(enrollment, quiz_id: int, *, client: str = "") -> dict:
     if quiz is None:
         raise ServiceError(f"Quiz {quiz_id} was not found in your classes. Call list_my_courses to see valid quiz ids.")
     target = enrollment_for_course(enrollment, quiz.course_id)
+    if quiz.is_ai:
+        return _start_ai(target, quiz, client=client)
     questions = _questions(quiz)
     if not questions:
         raise ServiceError("This quiz has no questions yet. Tell the student the instructor hasn't finished it.")
@@ -111,6 +120,8 @@ def grade_and_next(enrollment, attempt_id: int, question_id: int, answer: str, *
         )
         if attempt is None:
             raise ServiceError(f"Quiz attempt {attempt_id} was not found. Call start_quiz to begin or resume a quiz.")
+        if attempt.quiz.is_ai:
+            raise ServiceError("This quiz is AI-generated. Record answers with record_ai_answer instead.")
         questions = _questions(attempt.quiz)
         if attempt.finished_at:
             raise ServiceError(
@@ -165,5 +176,133 @@ def grade_and_next(enrollment, attempt_id: int, question_id: int, answer: str, *
         result["instructions"] = (
             "Tell the student this result (based only on this response) with the explanation, "
             "then ask the next question and wait. " + ASK_RULES
+        )
+    return result
+
+
+# --------------------------------------------------------------------------- AI-generated quizzes
+
+AI_RULES = (
+    "This quiz is written by YOU from the instructor's prompt below. "
+    "Write ONE question at a time that fits the prompt and the lesson (multiple choice with options A, B, C… "
+    "or a short answer). Ask it, then STOP and wait for the student's reply; never answer it for them or hint. "
+    "Then judge the reply fairly (accept small spelling slips only if the prompt allows it) and call "
+    "record_ai_answer with this attempt_id, the exact question you asked, the options (if any), the correct "
+    "answer, the student's reply unchanged, whether it is correct, a one-line explanation and the concept. "
+    "Tell the student the result, then ask the next question. Do not repeat questions already asked."
+)
+
+
+def _lesson_context(lesson) -> dict | None:
+    if lesson is None:
+        return None
+    return {
+        "lesson_id": lesson.id,
+        "title": lesson.title,
+        "objectives": lesson.objectives_list,
+        "lesson_prompt": lesson.brief or None,
+        "content": lesson.content or None,
+    }
+
+
+def _start_ai(target, quiz, *, client: str = "") -> dict:
+    attempt = QuizAttempt.objects.filter(enrollment=target, quiz=quiz, finished_at__isnull=True).first()
+    resumed = attempt is not None
+    if attempt is None:
+        attempt = QuizAttempt.objects.create(enrollment=target, quiz=quiz)
+        events.record(target, Event.QUIZ_STARTED, lesson=quiz.lesson, client=client)
+    else:
+        target.touch()
+    asked = list(attempt.generated_questions.order_by("order", "id").values_list("prompt", flat=True))
+    return {
+        "attempt_id": attempt.id,
+        "quiz_title": quiz.title,
+        "mode": "ai_generated",
+        "total_questions": quiz.ai_question_count,
+        "questions_answered": len(asked),
+        "next_question_number": len(asked) + 1,
+        "resumed_unfinished_attempt": resumed,
+        "instructor_prompt": quiz.prompt,
+        "lesson": _lesson_context(quiz.lesson),
+        "already_asked": asked,
+        "instructions": AI_RULES,
+    }
+
+
+def record_ai_answer(
+    enrollment,
+    attempt_id: int,
+    question: str,
+    correct_answer: str,
+    student_answer: str,
+    is_correct: bool,
+    *,
+    options: list[str] | None = None,
+    explanation: str = "",
+    concept: str = "",
+    client: str = "",
+) -> dict:
+    question = (question or "").strip()
+    student_answer = (student_answer or "").strip()
+    if not question:
+        raise ServiceError("question is empty. Pass the exact question you asked the student.")
+    if not student_answer:
+        raise ServiceError("student_answer is empty. Ask the student for their answer first.")
+    options = [str(o).strip() for o in (options or []) if str(o).strip()]
+
+    with transaction.atomic():
+        attempt = (
+            QuizAttempt.objects.select_for_update()
+            .select_related("quiz", "enrollment")
+            .filter(pk=attempt_id, enrollment__student_id=enrollment.student_id)
+            .first()
+        )
+        if attempt is None:
+            raise ServiceError(f"Quiz attempt {attempt_id} was not found. Call start_quiz to begin or resume a quiz.")
+        quiz = attempt.quiz
+        if not quiz.is_ai:
+            raise ServiceError("This quiz has instructor-written questions. Use submit_answer instead.")
+        if attempt.finished_at:
+            raise ServiceError(
+                f"This quiz attempt is already finished (score {attempt.score_percent}%). "
+                "Call start_quiz again if the student wants to retake it."
+            )
+        total = quiz.ai_question_count
+        number = attempt.generated_questions.count() + 1
+        q = Question.objects.create(
+            quiz=quiz,
+            attempt=attempt,
+            order=number,
+            type=Question.MCQ if len(options) >= 2 else Question.SHORT,
+            prompt=question[:5000],
+            options_json=options if len(options) >= 2 else [],
+            correct_answer=(correct_answer or "").strip()[:500],
+            explanation=(explanation or "").strip()[:2000],
+            concept=(concept or "").strip()[:120],
+        )
+        status = Answer.CORRECT if is_correct else Answer.INCORRECT
+        Answer.objects.create(attempt=attempt, question=q, raw_answer=student_answer[:5000], status=status)
+
+        finished = number >= total
+        if finished:
+            attempt.finished_at = timezone.now()
+            correct = attempt.answers.filter(status=Answer.CORRECT).count()
+            attempt.score = min(1.0, correct / total)
+            attempt.save(update_fields=["finished_at", "score"])
+            events.record(attempt.enrollment, Event.QUIZ_FINISHED, lesson=quiz.lesson, client=client)
+        else:
+            attempt.enrollment.touch()
+
+    result = {"recorded": True, "result": status, "question_number": number, "total": total, "finished": finished}
+    if finished:
+        correct = attempt.answers.filter(status=Answer.CORRECT).count()
+        result["score"] = {"correct": correct, "total": total, "score_percent": attempt.score_percent}
+        result["instructions"] = (
+            "Tell the student their final score. Offer to review missed concepts; "
+            "if they struggled with one, call report_stuck for it."
+        )
+    else:
+        result["instructions"] = (
+            f"Tell the student the result, then write and ask question {number + 1} of {total}. " + AI_RULES
         )
     return result

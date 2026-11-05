@@ -120,3 +120,26 @@ def test_instructor_cannot_see_other_students(client, instructor, two_classes):
     # Operator-only models are not visible to instructors.
     assert client.get(reverse("admin:learn_student_changelist")).status_code == 403
     assert client.get(reverse("admin:learn_toolcall_changelist")).status_code == 403
+
+
+def test_question_form_options_one_per_line():
+    from learn.admin import LinesListField
+
+    field = LinesListField()
+    assert field.clean("Paris\n Rome \n\nMadrid\n") == ["Paris", "Rome", "Madrid"]
+    assert field.clean('["Paris", "Rome"]') == ["Paris", "Rome"]  # pasted JSON still works
+    assert field.clean("") == []
+    assert field.prepare_value(["a", "b"]) == "a\nb"
+    assert not field.has_changed(["a", "b"], "a\nb\n")
+
+
+def test_seed_english_creates_valid_class(instructor):
+    from django.core.management import call_command
+
+    from learn.models import Course, Question
+
+    call_command("seed_english", "--username", instructor.user.username)
+    call_command("seed_english", "--username", instructor.user.username)  # idempotent
+    course = Course.objects.get(instructor=instructor)
+    assert course.lessons.count() == 3 and course.quizzes.count() == 3
+    assert Question.objects.filter(quiz__course=course).count() == 12
