@@ -29,6 +29,18 @@ def app_label(client: str) -> dict:
     return {"name": name, "via": via}
 
 
+def feedback_fields(ev) -> dict:
+    """Split a lesson-feedback event ("Understood 3/5. summary") into its parts."""
+    understood, note = None, ev.note
+    if ev.note.startswith("Understood ") and "/5" in ev.note:
+        try:
+            understood = int(ev.note.split()[1].split("/")[0])
+            note = ev.note.split(". ", 1)[1] if ". " in ev.note else ""
+        except (IndexError, ValueError):
+            understood = None
+    return {"understood": understood, "difficult": [c.strip() for c in ev.concept.split(",") if c.strip()], "note": note}
+
+
 def _iso(dt):
     return dt.isoformat() if dt else None
 
@@ -51,20 +63,12 @@ def timeline(enrollment, limit: int = 60) -> list[dict]:
                 }
             )
         elif ev.type == Event.LESSON_FEEDBACK:
-            understood = None
-            if ev.note.startswith("Understood ") and "/5" in ev.note:
-                try:
-                    understood = int(ev.note.split()[1].split("/")[0])
-                except (IndexError, ValueError):
-                    understood = None
             items.append(
                 {
                     "type": "feedback",
                     "at": _iso(ev.created_at),
                     "title": ev.lesson.title if ev.lesson else "",
-                    "understood": understood,
-                    "difficult": [c.strip() for c in ev.concept.split(",") if c.strip()],
-                    "note": ev.note.split(". ", 1)[1] if understood is not None and ". " in ev.note else ev.note,
+                    **feedback_fields(ev),
                     "app": app_label(ev.client),
                 }
             )

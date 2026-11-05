@@ -410,6 +410,23 @@ def study(request, enrollment_id: int):
     enr = _my_enrollment(request, enrollment_id)
     data = courses.list_courses(enr)
     course = next((c for c in data["courses"] if c["course_id"] == enr.course_id), None)
+    # What already reached the instructor, per lesson and quiz (newest first).
+    sent_lessons: dict[int, dict] = {}
+    for ev in enr.events.filter(type=Event.LESSON_FEEDBACK, lesson__isnull=False).order_by("-created_at"):
+        if ev.lesson_id not in sent_lessons:
+            fb = history.feedback_fields(ev)
+            sent_lessons[ev.lesson_id] = {"at": _dt(ev.created_at), "understood": fb["understood"]}
+    sent_quizzes: dict[int, dict] = {}
+    for a in enr.attempts.filter(finished_at__isnull=False).order_by("-finished_at"):
+        if a.quiz_id not in sent_quizzes:
+            sent_quizzes[a.quiz_id] = {"at": _dt(a.finished_at), "score_percent": a.score_percent}
+    if course:
+        for lesson in course["lessons"]:
+            lesson["sent"] = sent_lessons.get(lesson["lesson_id"])
+            for q in lesson["quizzes"]:
+                q["last"] = sent_quizzes.get(q["quiz_id"])
+        for q in course["class_quizzes"]:
+            q["last"] = sent_quizzes.get(q["quiz_id"])
     return {"enrollment_id": enr.id, "course": course}
 
 

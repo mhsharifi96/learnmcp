@@ -94,3 +94,23 @@ def test_add_language_lessons_command(instructor):
     assert sum(1 for k in kinds.values() if k == "grammar") == 6
     call_command("add_language_lessons", join_code=course.join_code)  # idempotent
     assert course.lessons.count() == before + 24
+
+
+def test_study_shows_what_was_sent(client, course_setup):
+    import re
+
+    course, lesson1, _, quiz = course_setup
+    signup_student(client)
+    verify_from_outbox(client)
+    enr_id = post(client, f"/api/classes/{course.join_code}/join", {"consent": True}).json()["enrollment_id"]
+    data = client.get(f"/api/enrollments/{enr_id}/study").json()["course"]
+    assert data["lessons"][0]["sent"] is None and data["lessons"][0]["quizzes"][0]["last"] is None
+
+    prompt = post(client, f"/api/enrollments/{enr_id}/prompt", {"lesson_id": lesson1.id}).json()["prompt"]
+    key = re.search(r"/r/([^\s\"<?]+)", prompt).group(1)
+    q1 = quiz.questions.get(order=1)
+    client.post(f"/r/{key}", {"d": json.dumps({"understood": 4, "summary": "ok"}), f"a{q1.id}": "B"})
+    data = client.get(f"/api/enrollments/{enr_id}/study").json()["course"]
+    first = data["lessons"][0]
+    assert first["sent"]["understood"] == 4
+    assert first["quizzes"][0]["last"]["score_percent"] == 50

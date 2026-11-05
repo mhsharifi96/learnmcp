@@ -1,18 +1,33 @@
 "use client";
 
 import { useParams } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { api } from "@/lib/api";
-import { useT } from "@/components/lang";
+import { useFormatDate, useT } from "@/components/lang";
 import { Alert, Button, Card, Chip, PageTitle, SectionTitle, Spinner, useErrorText } from "@/components/ui";
 
-type QuizItem = { quiz_id: number; title: string; questions: number; ai_generated?: boolean; best_score_percent?: number };
-type LessonItem = { lesson_id: number; order: number; title: string; status: string; quizzes: QuizItem[] };
+type QuizItem = {
+  quiz_id: number;
+  title: string;
+  questions: number;
+  ai_generated?: boolean;
+  best_score_percent?: number;
+  last?: { at: string; score_percent: number | null } | null;
+};
+type LessonItem = {
+  lesson_id: number;
+  order: number;
+  title: string;
+  status: string;
+  quizzes: QuizItem[];
+  sent?: { at: string; understood: number | null } | null;
+};
 type Course = { course_id: number; title: string; lessons: LessonItem[]; class_quizzes: QuizItem[] };
 type Target = { lesson_id: number } | { quiz_id: number };
 
 export default function Study() {
   const t = useT();
+  const fmt = useFormatDate();
   const errorText = useErrorText();
   const { id } = useParams<{ id: string }>();
   const [course, setCourse] = useState<Course | null>(null);
@@ -20,11 +35,34 @@ export default function Study() {
   const [busy, setBusy] = useState("");
   const [done, setDone] = useState("");
 
-  useEffect(() => {
+  const load = useCallback(() => {
     api<{ course: Course }>(`enrollments/${id}/study`)
       .then((d) => setCourse(d.course))
       .catch((e) => setError(errorText(e)));
   }, [id]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(load, [load]);
+  // Coming back from the AI chat (or the result tab): show what was sent meanwhile.
+  useEffect(() => {
+    const onFocus = () => document.visibilityState === "visible" && load();
+    window.addEventListener("focus", onFocus);
+    document.addEventListener("visibilitychange", onFocus);
+    return () => {
+      window.removeEventListener("focus", onFocus);
+      document.removeEventListener("visibilitychange", onFocus);
+    };
+  }, [load]);
+
+  function LessonState({ l }: { l: LessonItem }) {
+    if (l.sent)
+      return (
+        <span className="flex flex-wrap items-center gap-2">
+          <Chip tone="ok">{`✓ ${t.study.sent} · ${fmt(l.sent.at)}`}</Chip>
+          {l.sent.understood != null && <Chip>{t.hist.understood(l.sent.understood)}</Chip>}
+        </span>
+      );
+    if (l.status !== "not_started") return <Chip tone="warn">{t.study.notSent}</Chip>;
+    return null;
+  }
 
   async function copy(key: string, target: Target) {
     setBusy(key);
@@ -58,7 +96,12 @@ export default function Study() {
         <span dir="auto">{q.title}</span>
         <span className="text-sm text-quiet">{t.study.questions(q.questions)}</span>
         {q.ai_generated && <Chip tone="info">{t.study.aiQuiz}</Chip>}
-        {q.best_score_percent != null && <Chip tone="ok">{`${t.study.best} ${q.best_score_percent}%`}</Chip>}
+        {q.last ? (
+          <Chip tone="ok">{`✓ ${t.study.sent} · ${q.last.score_percent ?? "—"}% · ${fmt(q.last.at)}`}</Chip>
+        ) : null}
+        {q.best_score_percent != null && q.best_score_percent !== q.last?.score_percent && (
+          <Chip>{`${t.study.best} ${q.best_score_percent}%`}</Chip>
+        )}
       </span>
     );
   }
@@ -66,14 +109,8 @@ export default function Study() {
   function QuizRow({ q }: { q: QuizItem }) {
     return (
       <li className="flex flex-wrap items-center justify-between gap-3 py-2">
-        <span className="flex flex-wrap items-center gap-2">
-          <Chip>{t.study.quizLabel}</Chip>
-          <span dir="auto">{q.title}</span>
-          <span className="text-sm text-quiet">{t.study.questions(q.questions)}</span>
-          {q.ai_generated && <Chip tone="info">{t.study.aiQuiz}</Chip>}
-          {q.best_score_percent != null && <Chip tone="ok">{`${t.study.best} ${q.best_score_percent}%`}</Chip>}
-        </span>
-        <CopyButton k={`q${q.quiz_id}`} target={{ quiz_id: q.quiz_id }} label={t.study.copyQuiz} quiz />
+        <QuizInfo q={q} />
+        <CopyButton k={`q${q.quiz_id}`} target={{ quiz_id: q.quiz_id }} label={t.study.copyQuiz} />
       </li>
     );
   }
@@ -101,7 +138,10 @@ export default function Study() {
           {course.lessons.map((l) => (
             <li key={l.lesson_id} className="py-3">
               <div className="flex flex-wrap items-center justify-between gap-3">
-                <strong dir="auto">{`${l.order}. ${l.title}`}</strong>
+                <span className="flex flex-col gap-1">
+                  <strong dir="auto">{`${l.order}. ${l.title}`}</strong>
+                  <LessonState l={l} />
+                </span>
                 <CopyButton
                   k={`l${l.lesson_id}`}
                   target={{ lesson_id: l.lesson_id }}
