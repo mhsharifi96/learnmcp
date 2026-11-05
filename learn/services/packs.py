@@ -185,7 +185,7 @@ def _send_rules(url: str, t: dict, json_shape: str) -> str:
 - Build the result as JSON in exactly this shape:
 {json_shape}
 - Show it to me inside the HTML page below, rendered as an artifact / canvas / HTML preview so I can click the button. Replace RESULT_JSON with the JSON (escape nothing else, change nothing else).
-- If you cannot display HTML, print the JSON in a code block and tell me to open {url} and paste it there.
+- If you cannot display HTML: give me ONE clickable link that already carries the result, made exactly like {url}?d=<the JSON, URL-encoded> (the JSON must be in the link). Under it, also print the JSON in a code block and tell me: if the link doesn't send it, open {url} and paste the JSON there.
 - Send nothing before the end. Never invent my answers.
 
 ```html
@@ -267,7 +267,7 @@ INSTRUCTOR'S QUIZ PROMPT:
 TASK: show me the quiz "{quiz.title}" ({len(questions)} questions). My instructor's server grades it; you do not know the correct answers.
 1. Render the HTML page below EXACTLY as it is (as an artifact / canvas / HTML preview), with no changes, so I can click my answers and press the send button. Say only one short line before it.
 2. Do not answer the questions, hint, or say which option is right, even if I ask.
-3. If you cannot display HTML: ask me the questions below one at a time and collect my answers without judging them. At the end print this JSON in a code block: {{"answers": [<my answer to Q1, use the option letter for multiple choice>, <Q2>, ...], "app": "<your app name>"}} and tell me to open {url} and paste it there.
+3. If you cannot display HTML: ask me the questions below one at a time and collect my answers without judging them. At the end build this JSON: {{"answers": [<my answer to Q1, use the option letter for multiple choice>, <Q2>, ...], "app": "<your app name>"}}. Give me ONE clickable link that carries it, made exactly like {url}?d=<the JSON, URL-encoded>. Under it, also print the JSON in a code block and tell me: if the link doesn't send it, open {url} and paste the JSON there.
 4. After I send it, the result page shows my mistakes. If I paste them here, help me understand them.
 
 ```html

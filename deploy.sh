@@ -252,6 +252,12 @@ cmd_deploy() {
   if ! wait_healthy; then
     die "Deploy failed. Fix the error above, or run ./deploy.sh rollback to restart the previous image."
   fi
+  # The gateway container is not recreated when only docker/gateway.conf changes: reload it.
+  if compose exec -T gateway nginx -t >/dev/null 2>&1; then
+    compose exec -T gateway nginx -s reload >/dev/null 2>&1 && ok "gateway config reloaded"
+  else
+    warn "gateway config test failed; kept the running config. Check docker/gateway.conf."
+  fi
   docker image prune -f >/dev/null 2>&1 || true
   print_urls
 }

@@ -10,7 +10,7 @@ BASE = "https://learn.example"
 
 
 def _key(prompt: str) -> str:
-    return re.search(r"https://learn\.example/r/([^\s\"<]+)", prompt).group(1)
+    return re.search(r"https://learn\.example/r/([^\s\"<?]+)", prompt).group(1)
 
 
 def test_manual_quiz_prompt_has_form_but_no_answers(enrolled, course_setup):
