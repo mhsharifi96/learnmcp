@@ -15,4 +15,5 @@ urlpatterns = [
     path("me/restore/", views.restore, name="restore"),
     path("me/<int:enrollment_id>/regenerate/", views.regenerate, name="regenerate"),
     path("me/<int:enrollment_id>/leave/", views.leave, name="leave"),
+    path("r/<str:key>", views.pack_submit, name="pack_submit"),
 ]

@@ -219,6 +219,7 @@ export default function Me() {
           </div>
 
           <div className="mt-6 flex flex-wrap gap-3">
+            <ButtonLink href={`/study/${e.id}/`}>{t.study.open}</ButtonLink>
             <Button
               variant="secondary"
               onClick={async () => {

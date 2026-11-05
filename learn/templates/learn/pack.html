@@ -1,0 +1,68 @@
+<!doctype html>
+<html dir="{{ t.dir }}">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex">
+  <title>{{ t.title }} · learnmcp</title>
+  <style>
+    :root { --bg:#f6f7fb; --card:#fff; --text:#1d2433; --muted:#5d6779; --accent:#0f766e; --border:#e2e6ef; --bad:#c92a2a; --ok:#2b8a3e; --warn:#b45309; }
+    @media (prefers-color-scheme: dark) { :root { --bg:#12151d; --card:#1b1f2a; --text:#e7eaf2; --muted:#9aa3b5; --border:#2c3242; --accent:#2dd4bf; } }
+    * { box-sizing: border-box; }
+    body { margin:0; padding:24px 16px 64px; font:16px/1.6 system-ui, Tahoma, sans-serif; background:var(--bg); color:var(--text); }
+    main { max-width:640px; margin:0 auto; }
+    .card { background:var(--card); border:1px solid var(--border); border-radius:14px; padding:20px; margin-bottom:16px; }
+    h1 { font-size:1.4rem; margin:0 0 .5rem; }
+    .muted { color:var(--muted); }
+    .ok { color:var(--ok); font-weight:700; } .bad { color:var(--bad); } .warn { color:var(--warn); }
+    .score { font-size:2.4rem; font-weight:800; color:var(--accent); }
+    .item { border-top:1px solid var(--border); padding:10px 0; }
+    textarea { width:100%; min-height:160px; padding:10px; border:1px solid var(--border); border-radius:10px; background:var(--bg); color:var(--text); font:13px/1.4 monospace; }
+    button { margin-top:10px; padding:10px 18px; border:0; border-radius:10px; background:var(--accent); color:#fff; font-size:1rem; cursor:pointer; }
+  </style>
+</head>
+<body><main>
+{% if result %}
+  <div class="card">
+    <h1>{% if result.title %}{{ result.title }}{% else %}{{ t.title }}{% endif %}</h1>
+    <p class="ok">{% if result.already %}{{ t.already }}{% elif result.kind == "lesson" %}{{ t.lesson_sent }}{% else %}{{ t.sent }}{% endif %}</p>
+    {% if result.kind == "quiz" %}
+      <p><span class="score" dir="ltr">{{ result.score_percent }}%</span>
+        <span class="muted" dir="ltr">({{ result.correct }}/{{ result.total }})</span> {{ t.correct }}</p>
+      {% if result.needs_review %}<p class="warn">{{ result.needs_review }} × {{ t.needs_review }}</p>{% endif %}
+    {% endif %}
+    <p class="muted">{{ t.close }}</p>
+  </div>
+  {% if result.mistakes %}
+  <div class="card">
+    <h1>{{ t.review }}</h1>
+    {% for m in result.mistakes %}
+      <div class="item">
+        <p dir="auto"><strong>{{ m.number }}.</strong> {{ m.question }}</p>
+        <p dir="auto" class="{% if m.result == 'needs_review' %}warn{% else %}bad{% endif %}">{{ t.your }}: {{ m.student_answer }}</p>
+        {% if m.result != 'needs_review' %}<p dir="auto" class="ok">{{ t.right }}: {{ m.correct_answer }}</p>{% endif %}
+        {% if m.explanation %}<p dir="auto" class="muted">{{ m.explanation }}</p>{% endif %}
+      </div>
+    {% endfor %}
+  </div>
+  {% if review %}
+  <div class="card">
+    <p>{{ t.copy }}</p>
+    <textarea id="review" readonly dir="auto">{{ review }}</textarea>
+    <button type="button" onclick="navigator.clipboard.writeText(document.getElementById('review').value)">📋</button>
+  </div>
+  {% endif %}
+  {% endif %}
+{% else %}
+  <div class="card">
+    <h1>{{ t.paste_title }}</h1>
+    {% if error %}<p class="bad">{{ t.error }}: {{ error }}</p>{% endif %}
+    <p class="muted">{{ t.paste_lead }}</p>
+    <form method="post">
+      <textarea name="d" dir="ltr" required>{{ pasted|default:"" }}</textarea>
+      <button type="submit">{{ t.send }}</button>
+    </form>
+  </div>
+{% endif %}
+</main></body>
+</html>

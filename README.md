@@ -9,6 +9,15 @@ An MCP server and a Django panel that connect an **instructor** to their **stude
 - Quizzes have two modes. **I write the questions**: graded on the server, and the correct answer is never sent before the student answers. **The AI writes the questions from my prompt**: the student's AI writes and judges each question and records it with `record_ai_answer`, so the instructor still sees every question, answer and score.
 - Web UI: a bilingual (Persian/English) Next.js app in [frontend/](frontend/) for students (join, connect, my data) and instructors (classes, lessons, quizzes, dashboard, review). It talks to Django through the JSON API under `/api/`. In Docker, an nginx `gateway` service sends `/api`, `/admin`, `/s/` (MCP), OAuth and `/static` to Django and everything else to Next.js. Django admin stays available at `/admin/`.
 
+### AI apps without MCP (copy-paste prompts)
+
+Free Gemini, ChatGPT and DeepSeek can't add connectors. On `/study/{enrollment_id}` a student copies a prompt for a lesson or quiz into any AI chat. At the end the AI shows an HTML box with one **Send** button: a plain form POST (new tab) to `/r/{key}`, so each lesson or quiz costs one request. Logic lives in `learn/services/packs.py`.
+
+- Instructor-written quizzes: the server builds the whole quiz as a clickable HTML form (no correct answers inside) and grades it on submit.
+- AI-written quizzes and lessons: the AI fills a JSON result into the send box (self-reported, like `record_ai_answer`).
+- The key is signed, expires after 30 days, works once, and dies when the student makes a new connection link.
+- If the AI can't render HTML or the sandbox blocks the button, `/r/{key}` also accepts the pasted JSON.
+
 ## Architecture
 
 ```

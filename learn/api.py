@@ -37,7 +37,7 @@ from learn.models import (
     Student,
     ToolCall,
 )
-from learn.services import ServiceError, accounts, enrollments, grading, progress, quizzes, tokens
+from learn.services import ServiceError, accounts, courses, enrollments, grading, packs, progress, quizzes, tokens
 
 
 class ApiError(Exception):
@@ -373,6 +373,29 @@ def leave(request, enrollment_id: int):
     if not Student.objects.filter(pk=request.session.get(pages.SESSION_STUDENT)).exists():
         request.session.pop(pages.SESSION_STUDENT, None)
     return {"ok": True}
+
+
+@api()
+def study(request, enrollment_id: int):
+    """Lessons and quizzes of one class, for the copy-a-prompt page (AI apps without MCP)."""
+    enr = _my_enrollment(request, enrollment_id)
+    data = courses.list_courses(enr)
+    course = next((c for c in data["courses"] if c["course_id"] == enr.course_id), None)
+    return {"enrollment_id": enr.id, "course": course}
+
+
+@api(methods=("POST",))
+def study_prompt(request, enrollment_id: int):
+    enr = _my_enrollment(request, enrollment_id)
+    data = _body(request)
+    base = pages.public_base_url(request)
+    if data.get("lesson_id"):
+        text = packs.lesson_prompt(enr, int(data["lesson_id"]), base)
+    elif data.get("quiz_id"):
+        text = packs.quiz_prompt(enr, int(data["quiz_id"]), base)
+    else:
+        raise ApiError("Pick a lesson or a quiz.")
+    return {"prompt": text}
 
 
 def _answer_payload(a: Answer) -> dict:

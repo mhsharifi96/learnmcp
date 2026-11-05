@@ -301,12 +301,14 @@ class Answer(models.Model):
 
 class Event(models.Model):
     LESSON_STARTED = "lesson_started"
+    LESSON_FEEDBACK = "lesson_feedback"
     PROBLEM = "problem"
     PROGRESS_VIEWED = "progress_viewed"
     QUIZ_STARTED = "quiz_started"
     QUIZ_FINISHED = "quiz_finished"
     TYPE_CHOICES = [
         (LESSON_STARTED, "Lesson started"),
+        (LESSON_FEEDBACK, "Lesson feedback"),
         (PROBLEM, "Problem reported"),
         (PROGRESS_VIEWED, "Progress viewed"),
         (QUIZ_STARTED, "Quiz started"),
@@ -354,6 +356,27 @@ class Event(models.Model):
 
     def __str__(self):
         return f"{self.get_type_display()} — {self.enrollment}"
+
+
+class PackSubmission(models.Model):
+    """One result sent back from a copy-paste prompt (for AI apps without MCP).
+
+    The nonce comes from the signed key inside the prompt, so each prompt can be submitted once.
+    """
+
+    LESSON = "lesson"
+    QUIZ = "quiz"
+    KIND_CHOICES = [(LESSON, "Lesson"), (QUIZ, "Quiz")]
+
+    nonce = models.CharField(max_length=32, unique=True)
+    enrollment = models.ForeignKey(Enrollment, on_delete=models.CASCADE, related_name="pack_submissions")
+    kind = models.CharField(max_length=10, choices=KIND_CHOICES)
+    attempt = models.ForeignKey(QuizAttempt, on_delete=models.SET_NULL, null=True, blank=True, related_name="+")
+    event = models.ForeignKey(Event, on_delete=models.SET_NULL, null=True, blank=True, related_name="+")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at"]
 
 
 class ToolCall(models.Model):

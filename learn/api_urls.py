@@ -19,6 +19,8 @@ urlpatterns = [
     path("connect/<int:enrollment_id>", api.connect_info),
     path("enrollments/<int:enrollment_id>/regenerate", api.regenerate),
     path("enrollments/<int:enrollment_id>/leave", api.leave),
+    path("enrollments/<int:enrollment_id>/study", api.study),
+    path("enrollments/<int:enrollment_id>/prompt", api.study_prompt),
     path("me", api.my_data),
     path("restore", api.restore),
     # instructors

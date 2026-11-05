@@ -5,12 +5,13 @@ from django.db import connection, transaction
 from django.http import Http404, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
+from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
 
 from learn.apps import ensure_instructors_group
 from learn.forms import InstructorSignupForm, JoinCodeForm, JoinForm, RestoreForm
 from learn.models import Course, Enrollment, Instructor, Student
-from learn.services import ServiceError, enrollments, tokens
+from learn.services import ServiceError, enrollments, packs, tokens
 
 SESSION_ENROLLMENTS = "learnmcp_enrollments"
 SESSION_STUDENT = "learnmcp_student_id"
@@ -213,3 +214,61 @@ def leave(request, enrollment_id: int):
         request.session.pop(SESSION_STUDENT, None)
     messages.success(request, f"You left {title}. All data recorded for that class was deleted.")
     return redirect("learn:me")
+
+
+# --------------------------------------------------------------------------- prompt results (no MCP)
+
+PACK_TEXT = {
+    "fa": {
+        "dir": "rtl", "title": "نتیجه برای مدرس", "sent": "ارسال شد ✓ مدرس شما نتیجه را می‌بیند.",
+        "already": "این نتیجه قبلاً ارسال شده بود.", "score": "نمره", "correct": "درست",
+        "review": "سؤال‌های بی‌پاسخ یا غلط", "your": "پاسخ شما", "right": "پاسخ درست",
+        "needs_review": "سؤال تشریحی؛ مدرس بررسی می‌کند", "copy": "این متن را در چت هوش مصنوعی بچسبانید تا اشتباه‌ها را توضیح دهد:",
+        "paste_title": "ارسال نتیجه", "paste_lead": "متنی را که هوش مصنوعی ساخت (JSON) اینجا بچسبانید و ارسال کنید.",
+        "send": "ارسال", "error": "خطا", "lesson_sent": "بازخورد درس ارسال شد ✓", "close": "می‌توانید این صفحه را ببندید و به چت برگردید.",
+    },
+    "en": {
+        "dir": "ltr", "title": "Result for your instructor", "sent": "Sent ✓ Your instructor can see the result.",
+        "already": "This result was already sent.", "score": "Score", "correct": "correct",
+        "review": "Questions to review", "your": "Your answer", "right": "Correct answer",
+        "needs_review": "Free-text answer; your instructor will review it", "copy": "Paste this into your AI chat to go over your mistakes:",
+        "paste_title": "Send a result", "paste_lead": "Paste the text your AI made (JSON) here and send it.",
+        "send": "Send", "error": "Error", "lesson_sent": "Lesson feedback sent ✓", "close": "You can close this page and go back to the chat.",
+    },
+}
+
+
+def _pack_lang(request, key: str) -> str:
+    try:
+        enrollment, _ = packs.read_key(key)
+        return enrollment.student.lang
+    except ServiceError:
+        return "en" if request.headers.get("Accept-Language", "").startswith("en") else "fa"
+
+
+@csrf_exempt
+def pack_submit(request, key: str):
+    """Receives the single result of a copy-paste prompt (HTML form POST, ?d= link, or pasted JSON)."""
+    lang = _pack_lang(request, key)
+    ctx = {"t": PACK_TEXT.get(lang, PACK_TEXT["fa"]), "key": key}
+    form_fields = {k: v for k, v in request.POST.items() if k.startswith("a") and k[1:].isdigit()}
+    raw = request.POST.get("d") or request.GET.get("d") or ""
+    if request.method != "POST" and not raw:
+        return render(request, "learn/pack.html", ctx)
+    status = 200
+    try:
+        data = packs.parse_data(raw) if raw.strip() else {}
+        data.update(form_fields)
+        if not data:
+            raise ServiceError("Nothing was sent.")
+        origin = request.headers.get("Origin") or request.headers.get("Referer") or ""
+        result = packs.submit(key, data, origin=origin)
+        ctx.update(result=result, review=packs.review_text(result))
+    except ServiceError as exc:
+        ctx.update(error=str(exc), pasted=raw)
+        status = 400
+    if request.GET.get("format") == "json":
+        resp = JsonResponse(ctx.get("result") or {"error": ctx.get("error")}, status=status)
+        resp["Access-Control-Allow-Origin"] = "*"
+        return resp
+    return render(request, "learn/pack.html", ctx, status=status)
