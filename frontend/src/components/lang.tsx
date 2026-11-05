@@ -40,7 +40,7 @@ export function LangSwitch() {
   return (
     <button
       type="button"
-      className="rounded-md px-2 py-1 text-sm text-lapis hover:bg-mist"
+      className="min-h-[44px] whitespace-nowrap rounded-lg px-3 text-sm font-medium text-lapis transition-colors hover:bg-mist"
       lang={next}
       onClick={() => {
         document.cookie = `${LANG_COOKIE}=${next}; path=/; max-age=31536000; samesite=lax`;

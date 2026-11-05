@@ -116,3 +116,23 @@ details[open] > summary svg:last-child { transform: rotate(180deg); }
 
 details > summary { list-style: none; cursor: pointer; }
 details > summary::-webkit-details-marker { display: none; }
+
+/* ------------------------------------------------------------ mobile menu */
+.mobile-nav {
+  display: grid;
+  grid-template-rows: 0fr;
+  opacity: 0;
+  visibility: hidden;
+  transition: grid-template-rows var(--dur-med) var(--ease-out), opacity var(--dur-fast) ease, visibility 0s var(--dur-med);
+}
+.mobile-nav > div { overflow: hidden; min-height: 0; }
+.mobile-nav.is-open {
+  grid-template-rows: 1fr;
+  opacity: 1;
+  visibility: visible;
+  transition: grid-template-rows var(--dur-med) var(--ease-out), opacity var(--dur-fast) ease, visibility 0s 0s;
+}
+.menu-line { transform-box: fill-box; transform-origin: center; transition: transform var(--dur-med) var(--ease-spring), opacity var(--dur-fast) ease; }
+.menu-top-open { transform: translateY(5px) rotate(45deg); }
+.menu-bottom-open { transform: translateY(-5px) rotate(-45deg); }
+@media (prefers-reduced-motion: reduce) { .mobile-nav, .mobile-nav.is-open, .menu-line { transition: none; } }
