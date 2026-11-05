@@ -40,11 +40,11 @@ export default function Study() {
     }
   }
 
-  function CopyButton({ k, target }: { k: string; target: Target }) {
+  function CopyButton({ k, target, label, quiz = false }: { k: string; target: Target; label: string; quiz?: boolean }) {
     return (
       <div className="flex flex-wrap items-center gap-2">
-        <Button variant={done === k ? "secondary" : "primary"} className="px-3 py-1.5 text-sm" disabled={busy === k} onClick={() => copy(k, target)}>
-          {busy === k ? t.common.loading : t.study.copyPrompt}
+        <Button variant={quiz || done === k ? "secondary" : "primary"} className="px-3 py-1.5 text-sm" disabled={busy === k} onClick={() => copy(k, target)}>
+          {busy === k ? t.common.loading : label}
         </Button>
         {done === k && <span className="text-sm text-quiet">{t.study.copied}</span>}
       </div>
@@ -55,12 +55,13 @@ export default function Study() {
     return (
       <li className="flex flex-wrap items-center justify-between gap-3 py-2">
         <span className="flex flex-wrap items-center gap-2">
+          <Chip>{t.study.quizLabel}</Chip>
           <span dir="auto">{q.title}</span>
           <span className="text-sm text-quiet">{t.study.questions(q.questions)}</span>
           {q.ai_generated && <Chip tone="info">{t.study.aiQuiz}</Chip>}
           {q.best_score_percent != null && <Chip tone="ok">{`${t.study.best} ${q.best_score_percent}%`}</Chip>}
         </span>
-        <CopyButton k={`q${q.quiz_id}`} target={{ quiz_id: q.quiz_id }} />
+        <CopyButton k={`q${q.quiz_id}`} target={{ quiz_id: q.quiz_id }} label={t.study.copyQuiz} quiz />
       </li>
     );
   }
@@ -89,7 +90,7 @@ export default function Study() {
             <li key={l.lesson_id} className="py-3">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <strong dir="auto">{`${l.order}. ${l.title}`}</strong>
-                <CopyButton k={`l${l.lesson_id}`} target={{ lesson_id: l.lesson_id }} />
+                <CopyButton k={`l${l.lesson_id}`} target={{ lesson_id: l.lesson_id }} label={t.study.copyLesson} />
               </div>
               {l.quizzes.length > 0 && (
                 <ul className="ms-4 mt-1 border-s border-[var(--line)] ps-4">
