@@ -8,6 +8,11 @@ urlpatterns = [
     path("auth/login", api.login_view),
     path("auth/logout", api.logout_view),
     path("auth/signup", api.signup),
+    path("auth/student/signup", api.student_signup),
+    path("auth/student/login", api.student_login),
+    path("auth/verify-email", api.verify_email),
+    path("auth/verify-email/resend", api.resend_verification),
+    path("me/settings", api.my_settings),
     # students
     path("classes/<str:code>", api.class_info),
     path("classes/<str:code>/join", api.join_class),

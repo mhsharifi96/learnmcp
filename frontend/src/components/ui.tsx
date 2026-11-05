@@ -5,20 +5,29 @@ import { useState } from "react";
 import { ApiError } from "@/lib/api";
 import { useT } from "./lang";
 
-type BtnProps = React.ButtonHTMLAttributes<HTMLButtonElement> & { variant?: "primary" | "secondary" | "danger" | "ghost" };
+type BtnProps = React.ButtonHTMLAttributes<HTMLButtonElement> & { variant?: Variant };
 
-export function Button({ variant = "primary", className = "", ...props }: BtnProps) {
+type Variant = "primary" | "secondary" | "danger" | "ghost";
+
+export function buttonClass(variant: Variant = "primary", className = "") {
   const styles = {
     primary: "bg-saffron text-ink hover:brightness-95 font-semibold",
     secondary: "bg-surface text-lapis border border-line hover:border-lapis",
     danger: "bg-surface text-danger border border-danger/40 hover:bg-danger hover:text-white",
     ghost: "text-lapis hover:bg-mist",
   }[variant];
+  return `inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2 text-[0.95rem] transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${styles} ${className}`;
+}
+
+export function Button({ variant = "primary", className = "", ...props }: BtnProps) {
+  return <button {...props} className={buttonClass(variant, className)} />;
+}
+
+export function ButtonLink({ href, variant = "primary", className = "", children }: { href: string; variant?: Variant; className?: string; children: React.ReactNode }) {
   return (
-    <button
-      {...props}
-      className={`inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2 text-[0.95rem] transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${styles} ${className}`}
-    />
+    <Link href={href} className={`${buttonClass(variant, className)} hover:no-underline`}>
+      {children}
+    </Link>
   );
 }
 
@@ -206,6 +215,35 @@ const ICONS: Record<string, React.ReactNode> = {
   ),
   chevron: <path d="m6 9 6 6 6-6" />,
   book: <path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20" />,
+  mail: (
+    <>
+      <rect x="2" y="4" width="20" height="16" rx="2" />
+      <path d="m22 7-10 6L2 7" />
+    </>
+  ),
+  calendar: (
+    <>
+      <rect x="3" y="4" width="18" height="18" rx="2" />
+      <path d="M16 2v4M8 2v4M3 10h18" />
+    </>
+  ),
+  download: <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3" />,
+  award: (
+    <>
+      <circle cx="12" cy="8" r="6" />
+      <path d="M15.5 13 17 22l-5-3-5 3 1.5-9" />
+    </>
+  ),
+  trophy: <path d="M6 9H4a2 2 0 0 1 0-4h2M18 9h2a2 2 0 0 0 0-4h-2M4 22h16M10 14.7V17c0 .6-.5 1-1 1.2C7.9 18.8 7 20.2 7 22M14 14.7V17c0 .6.5 1 1 1.2 1.1.6 2 2 2 3.8M18 2H6v7a6 6 0 0 0 12 0V2Z" />,
+  flame: <path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.4-.5-2-1-3-1.1-2.1-.2-4 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.2.4-2.3 1-3.2.3 1.6 1.4 2.7 2.5 2.7Z" />,
+  message: <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2Z" />,
+  repeat: <path d="m17 2 4 4-4 4M3 11v-1a4 4 0 0 1 4-4h14M7 22l-4-4 4-4M21 13v1a4 4 0 0 1-4 4H3" />,
+  lock: (
+    <>
+      <rect x="3" y="11" width="18" height="11" rx="2" />
+      <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+    </>
+  ),
 };
 
 export function Icon({ name, className = "h-5 w-5" }: { name: keyof typeof ICONS | string; className?: string }) {
@@ -317,5 +355,42 @@ export function SectionTitle({ icon, children, aside }: { icon?: string; childre
       </h2>
       {aside}
     </div>
+  );
+}
+
+/* ------------------------------------------------------------------ planned features (shown disabled) */
+
+export type SoonItem = { icon: string; title: string; text: string };
+
+export function ComingSoon({ title, lead, items }: { title: string; lead?: string; items: SoonItem[] }) {
+  const t = useT();
+  return (
+    <Card>
+      <SectionTitle icon="sparkles" aside={lead ? <span className="text-sm text-quiet">{lead}</span> : undefined}>
+        {title}
+      </SectionTitle>
+      <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        {items.map((it) => (
+          <li
+            key={it.title}
+            aria-disabled="true"
+            className="flex cursor-not-allowed select-none flex-col gap-2 rounded-xl border border-dashed border-line bg-mist/60 p-4 opacity-70"
+          >
+            <div className="flex items-center justify-between gap-2">
+              <span className="flex items-center gap-2 font-semibold text-ink">
+                <Icon name={it.icon} className="h-5 w-5 text-quiet" />
+                {it.title}
+              </span>
+              <Chip>{t.soon.badge}</Chip>
+            </div>
+            <p className="text-sm text-quiet">{it.text}</p>
+            <button type="button" disabled className="mt-auto inline-flex items-center gap-1 self-start rounded-lg border border-line px-3 py-1 text-sm text-quiet">
+              <Icon name="lock" className="h-4 w-4" />
+              {t.soon.disabled}
+            </button>
+          </li>
+        ))}
+      </ul>
+    </Card>
   );
 }

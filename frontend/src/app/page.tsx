@@ -23,7 +23,9 @@ export default function Home() {
           <h2 className="font-display text-2xl text-lapis">{t.home.studentTitle}</h2>
           <p className="mb-4 mt-1 text-quiet">{t.home.studentText}</p>
           <CodeForm />
-          <p className="mt-3 text-sm">
+          <p className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-sm">
+            <Link href="/student/signup/">{t.student.signupTitle}</Link>
+            <Link href="/student/login/">{t.student.loginTitle}</Link>
             <Link href="/me/">{t.nav.me}</Link>
           </p>
         </Card>

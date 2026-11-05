@@ -1,4 +1,5 @@
 export type User = { username: string; display_name: string; is_superuser: boolean };
+export type StudentAccount = { name: string; email: string; email_verified: boolean; email_reminders: boolean; lang: "fa" | "en" };
 export type Lesson = { id: number; order: number; title: string; brief: string; objectives: string; content: string; teaching_notes: string };
 export type QuizSummary = {
   id: number;
@@ -30,6 +31,7 @@ export type CourseSummary = {
   instructor: string;
   students: number | null;
   lessons: number | null;
+  reminder_after_days: number;
 };
 export type CourseDetail = Omit<CourseSummary, "lessons"> & { lessons: Lesson[]; quizzes: QuizSummary[]; student_count: number };
 export type Problem = {

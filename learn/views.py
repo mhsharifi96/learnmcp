@@ -28,8 +28,20 @@ def mcp_url(request, raw_token: str) -> str:
     return f"{public_base_url(request)}/s/{raw_token}/mcp"
 
 
+def account_student(request) -> Student | None:
+    """The student behind a logged-in student account (None for instructors / anonymous visitors)."""
+    user = getattr(request, "user", None)
+    if not (user and user.is_authenticated):
+        return None
+    return getattr(user, "student", None)
+
+
 def _session_enrollment_ids(request) -> list[int]:
-    return list(request.session.get(SESSION_ENROLLMENTS, []))
+    ids = list(request.session.get(SESSION_ENROLLMENTS, []))
+    student = account_student(request)
+    if student is not None:
+        ids += [i for i in student.enrollments.values_list("id", flat=True) if i not in ids]
+    return ids
 
 
 def _remember_enrollment(request, enrollment: Enrollment) -> None:

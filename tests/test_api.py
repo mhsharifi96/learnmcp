@@ -1,7 +1,11 @@
 import json
 
 
-from learn.models import Answer, Enrollment
+import re
+
+from django.core import mail
+
+from learn.models import Answer, Enrollment, Student
 from learn.services import tokens
 
 
@@ -9,16 +13,35 @@ def post(client, url, data=None, method="post"):
     return getattr(client, method)(url, json.dumps(data or {}), content_type="application/json")
 
 
+def signup_student(client, email="s@example.com", name="Sam"):
+    r = post(client, "/api/auth/student/signup",
+             {"name": name, "email": email, "password1": "Str0ng-pass!", "password2": "Str0ng-pass!", "lang": "en"})
+    assert r.status_code == 200, r.json()
+    return r.json()
+
+
+def verify_from_outbox(client):
+    token = re.search(r"token=([^\s'\"<]+)", mail.outbox[-1].body).group(1)
+    r = post(client, "/api/auth/verify-email", {"token": token})
+    assert r.status_code == 200, r.json()
+    return r.json()
+
+
 def test_student_join_connect_me_leave(client, course_setup):
     course = course_setup[0]
     info = client.get(f"/api/classes/{course.join_code.lower()}").json()
     assert info["title"] == course.title and not info["linked"]
 
-    bad = post(client, f"/api/classes/{course.join_code}/join", {"name": "Sam", "email": "s@example.com"})
+    # Joining needs a student account with a confirmed email.
+    assert post(client, f"/api/classes/{course.join_code}/join", {"consent": True}).status_code == 401
+    signup_student(client)
+    assert post(client, f"/api/classes/{course.join_code}/join", {"consent": True}).status_code == 403
+    verify_from_outbox(client)
+
+    bad = post(client, f"/api/classes/{course.join_code}/join", {})
     assert bad.status_code == 400 and "consent" in bad.json()["errors"]
 
-    ok = post(client, f"/api/classes/{course.join_code}/join",
-              {"name": "Sam", "email": "s@example.com", "consent": True})
+    ok = post(client, f"/api/classes/{course.join_code}/join", {"consent": True})
     eid = ok.json()["enrollment_id"]
     conn = client.get(f"/api/connect/{eid}").json()
     raw = conn["mcp_url"].split("/s/")[1].split("/mcp")[0]
@@ -34,6 +57,7 @@ def test_student_join_connect_me_leave(client, course_setup):
 
     assert post(client, f"/api/enrollments/{eid}/leave").json()["ok"]
     assert not Enrollment.objects.exists()
+    assert Student.objects.filter(email="s@example.com").exists()  # the account stays
 
 
 def test_other_session_cannot_see_enrollment(client, enrolled):

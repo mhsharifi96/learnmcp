@@ -5,7 +5,9 @@ import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import { api } from "@/lib/api";
 import { useFormatDate, useT } from "@/components/lang";
-import { Alert, Button, Card, PageTitle, Spinner, StatusTag, useErrorText } from "@/components/ui";
+import { VerifyNotice } from "@/components/student-auth-form";
+import type { StudentAccount } from "@/lib/types";
+import { Alert, Button, ButtonLink, Card, Chip, ComingSoon, PageTitle, SectionTitle, Spinner, StatusTag, useErrorText } from "@/components/ui";
 
 type Attempt = {
   id: number;
@@ -34,11 +36,16 @@ export default function Me() {
   const errorText = useErrorText();
   const router = useRouter();
   const [data, setData] = useState<Enr[] | null>(null);
+  const [student, setStudent] = useState<StudentAccount | null>(null);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
 
   const load = useCallback(() => {
-    api<{ enrollments: Enr[] }>("me").then((d) => setData(d.enrollments)).catch((e) => setError(errorText(e)));
+    api<{ enrollments: Enr[]; student: StudentAccount | null }>("me")
+      .then((d) => {
+        setStudent(d.student);
+        setData(d.enrollments);
+      }).catch((e) => setError(errorText(e)));
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(load, [load]);
 
@@ -49,6 +56,70 @@ export default function Me() {
     <div className="space-y-5">
       <PageTitle lead={t.me.lead}>{t.me.title}</PageTitle>
       <Alert kind="ok">{notice}</Alert>
+      {student ? (
+        <Card>
+          <SectionTitle
+            icon="users"
+            aside={
+              <Button
+                variant="ghost"
+                className="px-2 py-1 text-sm"
+                onClick={async () => {
+                  await api("auth/logout", { method: "POST" }).catch(() => undefined);
+                  router.push("/");
+                  router.refresh();
+                }}
+              >
+                {t.student.logout}
+              </Button>
+            }
+          >
+            {t.student.account}
+          </SectionTitle>
+          <p className="mb-3 flex flex-wrap items-center gap-2">
+            <strong>{student.name}</strong>
+            <span dir="ltr" className="text-quiet">
+              {student.email}
+            </span>
+            <Chip tone={student.email_verified ? "ok" : "warn"}>
+              {student.email_verified ? t.student.verifiedChip : t.student.unverifiedChip}
+            </Chip>
+          </p>
+          {!student.email_verified && <VerifyNotice email={student.email} />}
+          <label className="mt-3 flex items-start gap-3">
+            <input
+              type="checkbox"
+              className="mt-1.5 h-4 w-4 accent-[var(--turquoise)]"
+              checked={student.email_reminders}
+              onChange={async (ev) => {
+                try {
+                  const r = await api<{ student: StudentAccount }>("me/settings", {
+                    method: "PATCH",
+                    body: { email_reminders: ev.target.checked },
+                  });
+                  setStudent(r.student);
+                } catch (err) {
+                  setError(errorText(err));
+                }
+              }}
+            />
+            <span>
+              {t.student.reminders}
+              <span className="block text-sm text-quiet">{t.student.remindersHelp}</span>
+            </span>
+          </label>
+        </Card>
+      ) : (
+        <Card>
+          <p className="mb-3">{data.length > 0 ? t.student.legacy : t.student.needAccount}</p>
+          <div className="flex flex-wrap gap-3">
+            <ButtonLink href="/student/signup/">{t.student.signup}</ButtonLink>
+            <ButtonLink href="/student/login/" variant="secondary">
+              {t.student.login}
+            </ButtonLink>
+          </div>
+        </Card>
+      )}
       {data.length === 0 && (
         <Card>
           <p className="mb-2">{t.me.empty}</p>
@@ -179,6 +250,7 @@ export default function Me() {
           </div>
         </Card>
       ))}
+      <ComingSoon title={t.soon.title} lead={t.soon.meLead} items={t.soon.me} />
     </div>
   );
 }

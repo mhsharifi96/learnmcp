@@ -6,7 +6,7 @@ import { api } from "@/lib/api";
 import type { Problem } from "@/lib/types";
 import { useFormatDate, useT } from "@/components/lang";
 import { ProblemList } from "@/components/problems";
-import { Alert, Card, Chip, Icon, ScoreBar, SectionTitle, Spinner, StatCard, useErrorText } from "@/components/ui";
+import { Alert, Card, Chip, ComingSoon, Icon, ScoreBar, SectionTitle, Spinner, StatCard, useErrorText } from "@/components/ui";
 import { useCourse } from "./course-context";
 
 type Student = {
@@ -253,6 +253,7 @@ export default function Overview() {
           )}
         </Card>
       </div>
+      <ComingSoon title={t.soon.title} lead={t.soon.teachLead} items={t.soon.teach} />
     </div>
   );
 }

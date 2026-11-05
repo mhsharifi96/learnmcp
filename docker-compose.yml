@@ -28,6 +28,21 @@ services:
       db:
         condition: service_healthy
 
+  # Sends inactivity reminder emails (instructors set "remind after N days" per class). Checks hourly.
+  reminders:
+    image: learnmcp:${IMAGE_TAG:-latest}
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      DATABASE_URL: postgres://${POSTGRES_USER:-learnmcp}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-learnmcp}
+      RUN_MIGRATIONS: "false"
+    command: ["python", "manage.py", "send_reminders", "--loop", "${REMINDER_CHECK_SECONDS:-3600}"]
+    healthcheck:
+      disable: true
+    depends_on:
+      web:
+        condition: service_healthy
+
   frontend:
     build: ./frontend
     image: learnmcp-frontend:${IMAGE_TAG:-latest}

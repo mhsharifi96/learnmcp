@@ -5,7 +5,9 @@ import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { api, ApiError } from "@/lib/api";
 import { useT } from "@/components/lang";
-import { Alert, Button, Card, Field, Input, PageTitle, Spinner, useErrorText } from "@/components/ui";
+import { VerifyNotice } from "@/components/student-auth-form";
+import type { StudentAccount } from "@/lib/types";
+import { Alert, Button, ButtonLink, Card, PageTitle, Spinner, useErrorText } from "@/components/ui";
 
 type ClassInfo = {
   code: string;
@@ -14,7 +16,7 @@ type ClassInfo = {
   instructor: string;
   linked: boolean;
   already_joined: boolean;
-  student: { name: string; email: string } | null;
+  student: StudentAccount | null;
 };
 
 export default function Join() {
@@ -24,17 +26,14 @@ export default function Join() {
   const { code } = useParams<{ code: string }>();
   const [info, setInfo] = useState<ClassInfo | null>(null);
   const [loadError, setLoadError] = useState("");
-  const [form, setForm] = useState({ name: "", email: "", consent: false });
+  const [consent, setConsent] = useState(false);
   const [errors, setErrors] = useState<Record<string, string[]>>({});
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
     api<ClassInfo>(`classes/${encodeURIComponent(code)}`)
-      .then((d) => {
-        setInfo(d);
-        if (d.student) setForm((f) => ({ ...f, name: d.student!.name, email: d.student!.email }));
-      })
+      .then(setInfo)
       .catch((e) => setLoadError(e instanceof ApiError && e.status === 404 ? t.join.notFound : errorText(e)));
   }, [code]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -53,7 +52,7 @@ export default function Join() {
     setError("");
     setErrors({});
     try {
-      const r = await api<{ enrollment_id: number }>(`classes/${info!.code}/join`, { method: "POST", body: form });
+      const r = await api<{ enrollment_id: number }>(`classes/${info!.code}/join`, { method: "POST", body: { consent } });
       router.push(`/connect/${r.enrollment_id}/`);
     } catch (err) {
       setError(errorText(err));
@@ -104,31 +103,50 @@ export default function Join() {
 
           <Card>
             <h2 className="mb-3 text-xl font-bold text-lapis">{t.join.details}</h2>
-            {info.linked && <Alert kind="info">{t.join.linked}</Alert>}
-            <Alert>{error}</Alert>
-            <form onSubmit={submit} noValidate>
-              <Field label={t.join.name} htmlFor="name" error={errors.name}>
-                <Input id="name" required value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} autoComplete="name" />
-              </Field>
-              <Field label={t.join.email} htmlFor="email" error={errors.email}>
-                <Input id="email" type="email" dir="ltr" required value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} autoComplete="email" />
-              </Field>
-              <div className="mb-3">
-                <label className="flex items-start gap-3">
-                  <input
-                    type="checkbox"
-                    className="mt-1.5 h-4 w-4 accent-[var(--turquoise)]"
-                    checked={form.consent}
-                    onChange={(e) => setForm({ ...form, consent: e.target.checked })}
-                  />
-                  <span>{t.join.consent}</span>
-                </label>
-                {errors.consent && <p className="ms-7 text-sm text-danger">{errors.consent.join(" ")}</p>}
-              </div>
-              <Button type="submit" disabled={busy || !form.consent} className="mt-2">
-                {busy ? t.common.loading : t.join.submit}
-              </Button>
-            </form>
+            {!info.student ? (
+              <>
+                <p className="mb-4">{t.student.needAccount}</p>
+                <div className="flex flex-wrap gap-3">
+                  <ButtonLink href={`/student/signup/?next=${encodeURIComponent(`/join/${info.code}/`)}`}>{t.student.signup}</ButtonLink>
+                  <ButtonLink href={`/student/login/?next=${encodeURIComponent(`/join/${info.code}/`)}`} variant="secondary">
+                    {t.student.login}
+                  </ButtonLink>
+                </div>
+              </>
+            ) : !info.student.email_verified ? (
+              <VerifyNotice email={info.student.email} />
+            ) : (
+              <>
+                <Alert>{error}</Alert>
+                <dl className="mb-4 grid gap-1 text-sm sm:grid-cols-2">
+                  <div>
+                    <dt className="text-quiet">{t.join.name}</dt>
+                    <dd className="font-semibold">{info.student.name}</dd>
+                  </div>
+                  <div>
+                    <dt className="text-quiet">{t.join.email}</dt>
+                    <dd className="font-semibold" dir="ltr">{info.student.email}</dd>
+                  </div>
+                </dl>
+                <form onSubmit={submit} noValidate>
+                  <div className="mb-3">
+                    <label className="flex items-start gap-3">
+                      <input
+                        type="checkbox"
+                        className="mt-1.5 h-4 w-4 accent-[var(--turquoise)]"
+                        checked={consent}
+                        onChange={(e) => setConsent(e.target.checked)}
+                      />
+                      <span>{t.join.consent}</span>
+                    </label>
+                    {errors.consent && <p className="ms-7 text-sm text-danger">{errors.consent.join(" ")}</p>}
+                  </div>
+                  <Button type="submit" disabled={busy || !consent} className="mt-2">
+                    {busy ? t.common.loading : t.join.submit}
+                  </Button>
+                </form>
+              </>
+            )}
           </Card>
         </>
       )}

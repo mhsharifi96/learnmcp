@@ -8,9 +8,12 @@ instructor's own classes (superusers see everything), mirroring the admin scopin
 """
 
 import json
+import time
 from functools import wraps
 
 from django.contrib.auth import authenticate, login, logout
+from django.contrib.auth.password_validation import validate_password
+from django.core.validators import validate_email
 from django.core.exceptions import ValidationError
 from django.db import transaction
 from django.db.models import Count
@@ -20,7 +23,7 @@ from django.views.decorators.csrf import ensure_csrf_cookie
 
 from learn import views as pages
 from learn.apps import ensure_instructors_group
-from learn.forms import InstructorSignupForm, JoinForm
+from learn.forms import InstructorSignupForm
 from learn.models import (
     Answer,
     Course,
@@ -34,7 +37,7 @@ from learn.models import (
     Student,
     ToolCall,
 )
-from learn.services import ServiceError, enrollments, grading, progress, quizzes, tokens
+from learn.services import ServiceError, accounts, enrollments, grading, progress, quizzes, tokens
 
 
 class ApiError(Exception):
@@ -114,9 +117,21 @@ def _user_payload(user) -> dict | None:
     }
 
 
+def _student_payload(student: Student | None) -> dict | None:
+    if student is None:
+        return None
+    return {
+        "name": student.name,
+        "email": student.email,
+        "email_verified": student.email_verified,
+        "email_reminders": student.email_reminders,
+        "lang": student.lang,
+    }
+
+
 @api()
 def whoami(request):
-    return {"user": _user_payload(request.user)}
+    return {"user": _user_payload(request.user), "student": _student_payload(pages.account_student(request))}
 
 
 @api(methods=("POST",))
@@ -160,6 +175,125 @@ def signup(request):
     return {"user": _user_payload(user)}
 
 
+# =========================================================================== student accounts
+
+SESSION_VERIFY_SENT = "learnmcp_verify_sent_at"
+RESEND_COOLDOWN_SECONDS = 60
+
+
+def _send_verification(request, student: Student) -> bool:
+    request.session[SESSION_VERIFY_SENT] = time.time()
+    return accounts.send_verification(student, pages.public_base_url(request))
+
+
+def _login_student(request, student: Student) -> None:
+    login(request, student.user, backend="django.contrib.auth.backends.ModelBackend")
+    # Keep this browser linked to the student's classes (MCP setup pages, /me).
+    request.session[pages.SESSION_STUDENT] = student.id
+    request.session[pages.SESSION_ENROLLMENTS] = list(student.enrollments.values_list("id", flat=True))
+
+
+def _account(request) -> Student:
+    student = pages.account_student(request)
+    if student is None:
+        raise ApiError("Please log in with your student account.", 401)
+    return student
+
+
+@api(methods=("POST",))
+def student_signup(request):
+    data = _body(request)
+    name = str(data.get("name", "")).strip()
+    email = accounts.normalize_email(str(data.get("email", "")))
+    p1, p2 = str(data.get("password1", "")), str(data.get("password2", ""))
+    errors: dict[str, list[str]] = {}
+    if not name:
+        errors["name"] = ["Enter your name."]
+    elif len(name) > 120:
+        errors["name"] = ["Use at most 120 characters."]
+    try:
+        validate_email(email)
+    except ValidationError:
+        errors["email"] = ["Enter a valid email address."]
+    else:
+        if accounts.email_taken(email):
+            errors["email"] = ["An account with this email already exists. Log in instead."]
+    if p1 != p2:
+        errors["password2"] = ["The two passwords don't match."]
+    else:
+        try:
+            validate_password(p1)
+        except ValidationError as exc:
+            errors["password1"] = list(exc.messages)
+    if errors:
+        raise ApiError("Please fix the highlighted fields.", errors=errors)
+
+    claim = None
+    sid = request.session.get(pages.SESSION_STUDENT)
+    if sid:
+        claim = Student.objects.filter(pk=sid, user__isnull=True).first()
+    student = accounts.create_student_account(
+        name=name, email=email, password=p1, lang=str(data.get("lang", "fa")), claim=claim
+    )
+    _login_student(request, student)
+    sent = _send_verification(request, student)
+    return {"student": _student_payload(student), "email_sent": sent}
+
+
+@api(methods=("POST",))
+def student_login(request):
+    data = _body(request)
+    email = accounts.normalize_email(str(data.get("email", "")))
+    user = authenticate(request, username=email, password=str(data.get("password", "")))
+    student = getattr(user, "student", None) if user else None
+    if student is None:
+        raise ApiError("Wrong email or password.", 400)
+    _login_student(request, student)
+    return {"student": _student_payload(student)}
+
+
+@api(methods=("POST",))
+def verify_email(request):
+    student = accounts.verify(str(_body(request).get("token", "")))
+    return {"ok": True, "student": _student_payload(student)}
+
+
+@api(methods=("POST",))
+def resend_verification(request):
+    student = _account(request)
+    if student.email_verified:
+        return {"ok": True, "already_verified": True}
+    last = request.session.get(SESSION_VERIFY_SENT) or 0
+    wait = int(RESEND_COOLDOWN_SECONDS - (time.time() - last))
+    if wait > 0:
+        raise ApiError(f"Please wait {wait} seconds before sending another email.", 429)
+    if not _send_verification(request, student):
+        raise ApiError("We couldn't send the email right now. Try again later.", 503)
+    return {"ok": True}
+
+
+@api(methods=("PATCH",))
+def my_settings(request):
+    student = _account(request)
+    data = _body(request)
+    fields = []
+    if "email_reminders" in data:
+        student.email_reminders = bool(data["email_reminders"])
+        fields.append("email_reminders")
+    if "name" in data:
+        name = str(data["name"] or "").strip()
+        if not name or len(name) > 120:
+            raise ApiError("Please fix the highlighted fields.", errors={"name": ["Enter your name."]})
+        student.name = name
+        fields.append("name")
+    if data.get("lang") in ("fa", "en"):
+        student.lang = data["lang"]
+        fields.append("lang")
+    if fields:
+        student.save(update_fields=fields)
+    return {"student": _student_payload(student)}
+
+
 # =========================================================================== students
 
 
@@ -168,10 +302,7 @@ def class_info(request, code: str):
     course = Course.objects.select_related("instructor").filter(join_code=code.strip().upper()).first()
     if course is None:
         raise ApiError("No class with this code. Check it with your instructor.", 404)
-    student = None
-    sid = request.session.get(pages.SESSION_STUDENT)
-    if sid:
-        student = Student.objects.filter(pk=sid).first()
+    student = pages.account_student(request)
     already = bool(student and Enrollment.objects.filter(student=student, course=course).exists())
     return {
         "code": course.join_code,
@@ -180,7 +311,7 @@ def class_info(request, code: str):
         "instructor": course.instructor.display_name,
         "linked": student is not None,
         "already_joined": already,
-        "student": {"name": student.name, "email": student.email} if student else None,
+        "student": _student_payload(student),
     }
 
 
@@ -189,23 +320,14 @@ def join_class(request, code: str):
     course = Course.objects.filter(join_code=code.strip().upper()).first()
     if course is None:
         raise ApiError("No class with this code.", 404)
-    existing = None
-    sid = request.session.get(pages.SESSION_STUDENT)
-    if sid:
-        existing = Student.objects.filter(pk=sid).first()
-    data = _body(request)
-    form = JoinForm(
-        {
-            "name": data.get("name", ""),
-            "email": data.get("email", ""),
-            "consent": bool(data.get("consent")),
-        }
-    )
-    if not form.is_valid():
-        raise _form_errors(form)
-    enrollment, raw = enrollments.join(
-        course, name=form.cleaned_data["name"], email=form.cleaned_data["email"], existing_student=existing
-    )
+    student = _account(request)
+    if not student.email_verified:
+        raise ApiError("Confirm your email first. We sent you a link.", 403)
+    if not _body(request).get("consent"):
+        raise ApiError(
+            "Please fix the highlighted fields.", errors={"consent": ["Please agree before joining."]}
+        )
+    enrollment, raw = enrollments.join(course, name=student.name, email=student.email, existing_student=student)
     pages._remember_enrollment(request, enrollment)
     pages._stash_new_token(request, enrollment.id, raw)
     return {"enrollment_id": enrollment.id}
@@ -334,6 +456,7 @@ def my_data(request):
     )
     request.session[pages.SESSION_ENROLLMENTS] = [e.id for e in found]
     return {
+        "student": _student_payload(pages.account_student(request)),
         "enrollments": [
             {
                 "id": e.id,
@@ -356,6 +479,9 @@ def my_data(request):
 def restore(request):
     raw = tokens.extract_token_from_url(str(_body(request).get("url", "")))
     enr = tokens.resolve(raw) if raw else None
+    me = pages.account_student(request)
+    if enr is not None and me is not None and enr.student_id != me.id:
+        raise ApiError("This link belongs to another student.", errors={"url": ["Not yours."]})
     if enr is None:
         raise ApiError("This URL is not valid or was regenerated.", errors={"url": ["Not valid."]})
     for e in Enrollment.objects.filter(student=enr.student):
@@ -466,6 +592,7 @@ def _course_summary(course: Course) -> dict:
         "instructor": course.instructor.display_name,
         "students": getattr(course, "_students", None),
         "lessons": getattr(course, "_lessons", None),
+        "reminder_after_days": course.reminder_after_days,
         "created_at": _dt(course.created_at),
     }
 
@@ -494,7 +621,19 @@ def teach_course(request, course_id: int):
         course.delete()
         return {"ok": True}
     if request.method == "PATCH":
-        _apply(course, _body(request), ("title", "description"))
+        data = _body(request)
+        if "reminder_after_days" in data:
+            try:
+                days = int(data["reminder_after_days"] or 0)
+            except (TypeError, ValueError):
+                days = -1
+            if not 0 <= days <= 365:
+                raise ApiError(
+                    "Please fix the highlighted fields.",
+                    errors={"reminder_after_days": ["Choose 0 (off) to 365 days."]},
+                )
+            data["reminder_after_days"] = days
+        _apply(course, data, ("title", "description", "reminder_after_days"))
     data = _course_summary(course)
     data["lessons"] = [_lesson_payload(lesson) for lesson in course.lessons.order_by("order", "id")]
     data["quizzes"] = [_quiz_payload(q) for q in course.quizzes.select_related("lesson")]

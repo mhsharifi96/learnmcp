@@ -128,6 +128,26 @@ MCP_RATE_LIMIT_PER_MINUTE = int(os.environ.get("MCP_RATE_LIMIT_PER_MINUTE", "60"
 MCP_ALLOWED_HOSTS = env_list("MCP_ALLOWED_HOSTS", "")
 INACTIVE_AFTER_DAYS = int(os.environ.get("INACTIVE_AFTER_DAYS", "7"))
 
+# --- Email (verification + inactivity reminders) -----------------------------
+EMAIL_HOST = os.environ.get("SMTP_HOST", "")
+EMAIL_PORT = int(os.environ.get("SMTP_PORT", "587") or 587)
+EMAIL_HOST_USER = os.environ.get("SMTP_USER", "")
+EMAIL_HOST_PASSWORD = os.environ.get("SMTP_PASSWORD", "")
+EMAIL_USE_SSL = env_bool("SMTP_USE_SSL", False)
+EMAIL_USE_TLS = env_bool("SMTP_USE_TLS", True) and not EMAIL_USE_SSL
+EMAIL_TIMEOUT = 20
+DEFAULT_FROM_EMAIL = (
+    os.environ.get("DEFAULT_FROM_EMAIL") or os.environ.get("SMTP_FROM") or EMAIL_HOST_USER or "webmaster@localhost"
+)
+# Without SMTP settings, emails are printed to the log instead of being sent.
+EMAIL_BACKEND = (
+    "django.core.mail.backends.smtp.EmailBackend"
+    if EMAIL_HOST
+    else "django.core.mail.backends.console.EmailBackend"
+)
+# How long an email-verification link stays valid.
+EMAIL_VERIFY_MAX_AGE_DAYS = int(os.environ.get("EMAIL_VERIFY_MAX_AGE_DAYS", "3"))
+
 LOGGING = {
     "version": 1,
     "disable_existing_loggers": False,

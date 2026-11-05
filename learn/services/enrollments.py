@@ -32,8 +32,8 @@ def leave(enrollment) -> None:
     """Leave a class and delete everything recorded for it (PRD §11)."""
     student = enrollment.student
     enrollment.delete()  # cascades attempts, answers, events, tool-call logs
-    if not student.enrollments.exists():
-        student.delete()
+    if student.user_id is None and not student.enrollments.exists():
+        student.delete()  # account-less students exist only through their classes
 
 
 PROBLEM_CATEGORIES = {c for c, _ in Event.CATEGORY_CHOICES}

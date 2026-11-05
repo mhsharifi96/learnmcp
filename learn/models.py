@@ -29,6 +29,10 @@ class Course(models.Model):
     title = models.CharField(max_length=200)
     description = models.TextField(blank=True)
     join_code = models.CharField(max_length=16, unique=True, editable=False)
+    reminder_after_days = models.PositiveSmallIntegerField(
+        default=0,
+        help_text="Email a student after this many days without studying (0 = off). Repeats every N days.",
+    )
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -196,9 +200,28 @@ class Question(models.Model):
 
 
 class Student(models.Model):
+    LANG_CHOICES = [("fa", "فارسی"), ("en", "English")]
+
+    user = models.OneToOneField(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="student",
+        help_text="Student account (email + password). Empty for students who joined before accounts existed.",
+    )
     name = models.CharField(max_length=120)
     email = models.EmailField()
+    email_verified_at = models.DateTimeField(null=True, blank=True)
+    lang = models.CharField(max_length=5, choices=LANG_CHOICES, default="fa", help_text="Language of emails.")
+    email_reminders = models.BooleanField(
+        default=True, help_text="Receive inactivity reminder emails from instructors."
+    )
     created_at = models.DateTimeField(auto_now_add=True)
+
+    @property
+    def email_verified(self) -> bool:
+        return self.email_verified_at is not None
 
     def __str__(self):
         return f"{self.name} <{self.email}>"
@@ -213,6 +236,7 @@ class Enrollment(models.Model):
     joined_at = models.DateTimeField(auto_now_add=True)
     token_rotated_at = models.DateTimeField(null=True, blank=True)
     last_activity_at = models.DateTimeField(null=True, blank=True)
+    last_reminder_at = models.DateTimeField(null=True, blank=True, help_text="Last inactivity reminder email.")
 
     class Meta:
         constraints = [models.UniqueConstraint(fields=["student", "course"], name="unique_student_course")]

@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { api, ApiError } from "@/lib/api";
 import { useT } from "@/components/lang";
-import { Alert, Button, Card, Field, Input, Textarea, useErrorText } from "@/components/ui";
+import { Alert, Button, Card, Chip, Field, Input, Textarea, useErrorText } from "@/components/ui";
 import { useCourse } from "../course-context";
 
 export default function Settings() {
@@ -16,6 +16,9 @@ export default function Settings() {
   const [errors, setErrors] = useState<Record<string, string[]>>({});
   const [error, setError] = useState("");
   const [saved, setSaved] = useState(false);
+  const [days, setDays] = useState(String(course.reminder_after_days ?? 0));
+  const [rErrors, setRErrors] = useState<Record<string, string[]>>({});
+  const [rSaved, setRSaved] = useState(false);
 
   return (
     <div className="space-y-5">
@@ -46,6 +49,41 @@ export default function Settings() {
             <Textarea id="c-desc" rows={4} dir="auto" value={d.description} onChange={(e) => setD({ ...d, description: e.target.value })} />
           </Field>
           <Button type="submit">{t.common.save}</Button>
+        </form>
+      </Card>
+      <Card>
+        <h2 className="mb-1 flex flex-wrap items-center gap-2 text-xl font-bold text-lapis">
+          {t.teach.settings.reminderTitle}
+          <Chip tone={course.reminder_after_days > 0 ? "ok" : "default"}>
+            {course.reminder_after_days > 0 ? t.teach.settings.reminderOn(course.reminder_after_days) : t.teach.settings.reminderOff}
+          </Chip>
+        </h2>
+        <p className="mb-3 text-sm text-quiet">{t.teach.settings.reminderHelp}</p>
+        {rSaved && <Alert kind="ok">{t.common.saved}</Alert>}
+        <form
+          className="flex flex-wrap items-end gap-3"
+          onSubmit={async (e) => {
+            e.preventDefault();
+            setRErrors({});
+            setRSaved(false);
+            try {
+              await api(`teach/courses/${course.id}`, { method: "PATCH", body: { reminder_after_days: Number(days) || 0 } });
+              await reload();
+              setRSaved(true);
+            } catch (err) {
+              setError(errorText(err));
+              if (err instanceof ApiError) setRErrors(err.errors);
+            }
+          }}
+        >
+          <div className="w-full max-w-sm">
+            <Field label={t.teach.settings.reminderLabel} htmlFor="c-remind" error={rErrors.reminder_after_days}>
+              <Input id="c-remind" type="number" min={0} max={365} dir="ltr" value={days} onChange={(e) => setDays(e.target.value)} />
+            </Field>
+          </div>
+          <div className="mb-4">
+            <Button type="submit">{t.common.save}</Button>
+          </div>
         </form>
       </Card>
       <Card className="border-danger/40">
