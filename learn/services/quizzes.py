@@ -63,6 +63,94 @@ def _score_summary(attempt, questions) -> dict:
     }
 
 
+def mistakes(attempt) -> list[dict]:
+    """The questions the student got wrong (or that need review), in question order."""
+    answers = (
+        attempt.answers.select_related("question")
+        .exclude(status=Answer.CORRECT)
+        .order_by("question__order", "question_id")
+    )
+    numbers = {} if attempt.quiz.is_ai else {q.id: n for n, q in enumerate(_questions(attempt.quiz), start=1)}
+    out = []
+    for a in answers:
+        q = a.question
+        out.append(
+            {
+                "number": numbers.get(q.id, q.order),
+                "question": q.prompt,
+                "student_answer": a.raw_answer,
+                "correct_answer": grading.display_correct_answer(q),
+                "result": a.status,
+                "explanation": q.explanation,
+                "concept": q.concept,
+            }
+        )
+    return out
+
+
+REPORT_RULES = (
+    "The quiz is finished. Give the student a short report: their score, then go through each item in "
+    "report.mistakes (question number, what they answered, the right answer and why). Then call "
+    "submit_quiz_report with this attempt_id, a 2-4 sentence summary of how the quiz went and what the "
+    "student misunderstood, and the list of concepts they should review. Offer to re-teach those concepts."
+)
+
+
+def _finish(attempt, *, client: str = "") -> dict:
+    """Bookkeeping when an attempt ends: log it and report the mistakes to the instructor as a problem."""
+    items = mistakes(attempt)
+    events.record(attempt.enrollment, Event.QUIZ_FINISHED, lesson=attempt.quiz.lesson, attempt=attempt, client=client)
+    wrong = [m for m in items if m["result"] == Answer.INCORRECT]
+    if wrong:
+        concepts = list(dict.fromkeys(m["concept"] for m in wrong if m["concept"]))
+        total = attempt.quiz.ai_question_count if attempt.quiz.is_ai else len(_questions(attempt.quiz))
+        share = len(wrong) / total if total else 0
+        events.record(
+            attempt.enrollment,
+            Event.PROBLEM,
+            lesson=attempt.quiz.lesson,
+            attempt=attempt,
+            category=Event.CAT_QUIZ,
+            severity=Event.HIGH if share >= 0.5 else Event.MEDIUM if share >= 0.25 else Event.LOW,
+            concept=", ".join(concepts) or attempt.quiz.title,
+            note=f'{len(wrong)}/{total} wrong in "{attempt.quiz.title}": questions '
+            + ", ".join(str(m["number"]) for m in wrong),
+            client=client,
+        )
+    return {"mistakes": items, "all_correct": not items}
+
+
+def submit_report(
+    enrollment, attempt_id: int, summary: str, weak_concepts: list[str] | None = None, *, client: str = ""
+) -> dict:
+    summary = (summary or "").strip()
+    if not summary:
+        raise ServiceError("summary is empty. Write 2-4 sentences on how the quiz went and where the student went wrong.")
+    attempt = (
+        QuizAttempt.objects.select_related("quiz", "enrollment")
+        .filter(pk=attempt_id, enrollment__student_id=enrollment.student_id)
+        .first()
+    )
+    if attempt is None:
+        raise ServiceError(f"Quiz attempt {attempt_id} was not found.")
+    if not attempt.finished_at:
+        raise ServiceError("This quiz is not finished yet. Finish all questions before sending the report.")
+    concepts = [str(c).strip()[:120] for c in (weak_concepts or []) if str(c).strip()][:15]
+    attempt.summary = summary[:4000]
+    attempt.weak_concepts_json = concepts
+    attempt.save(update_fields=["summary", "weak_concepts_json"])
+    # Enrich the automatic quiz-mistakes problem with the AI's diagnosis.
+    problem = attempt.events.filter(type=Event.PROBLEM, category=Event.CAT_QUIZ).first()
+    if problem and concepts:
+        problem.concept = ", ".join(concepts)[:200]
+        problem.save(update_fields=["concept"])
+    attempt.enrollment.touch()
+    return {
+        "recorded": True,
+        "instructions": "Tell the student the report was sent to their instructor, then offer to review the weak concepts.",
+    }
+
+
 def recompute_score(attempt: QuizAttempt) -> None:
     quiz = attempt.quiz
     total = quiz.ai_question_count if quiz.is_ai else quiz.manual_questions().count()
@@ -149,7 +237,7 @@ def grade_and_next(enrollment, attempt_id: int, question_id: int, answer: str, *
             correct = attempt.answers.filter(status=Answer.CORRECT).count()
             attempt.score = correct / len(questions)
             attempt.save(update_fields=["finished_at", "score"])
-            events.record(attempt.enrollment, Event.QUIZ_FINISHED, lesson=attempt.quiz.lesson, client=client)
+            report = _finish(attempt, client=client)
         else:
             attempt.enrollment.touch()
 
@@ -167,10 +255,8 @@ def grade_and_next(enrollment, attempt_id: int, question_id: int, answer: str, *
     }
     if finished:
         result["score"] = _score_summary(attempt, questions)
-        result["instructions"] = (
-            "Tell the student this result and their final score. Offer to review missed concepts. "
-            "If they struggled with a concept, call report_stuck for it."
-        )
+        result["report"] = report
+        result["instructions"] = "Tell the student this result first. " + REPORT_RULES
     else:
         result["next_question"] = question_payload(nxt, number, len(questions))
         result["instructions"] = (
@@ -289,7 +375,7 @@ def record_ai_answer(
             correct = attempt.answers.filter(status=Answer.CORRECT).count()
             attempt.score = min(1.0, correct / total)
             attempt.save(update_fields=["finished_at", "score"])
-            events.record(attempt.enrollment, Event.QUIZ_FINISHED, lesson=quiz.lesson, client=client)
+            report = _finish(attempt, client=client)
         else:
             attempt.enrollment.touch()
 
@@ -297,10 +383,8 @@ def record_ai_answer(
     if finished:
         correct = attempt.answers.filter(status=Answer.CORRECT).count()
         result["score"] = {"correct": correct, "total": total, "score_percent": attempt.score_percent}
-        result["instructions"] = (
-            "Tell the student their final score. Offer to review missed concepts; "
-            "if they struggled with one, call report_stuck for it."
-        )
+        result["report"] = report
+        result["instructions"] = REPORT_RULES
     else:
         result["instructions"] = (
             f"Tell the student the result, then write and ask question {number + 1} of {total}. " + AI_RULES

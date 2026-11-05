@@ -113,3 +113,36 @@ def test_csrf_failure_is_json(db):
     c = Client(enforce_csrf_checks=True)
     r = c.post("/api/auth/logout", "{}", content_type="application/json")
     assert r.status_code == 403 and "session" in r.json()["error"].lower()
+
+
+def test_instructor_tracks_and_resolves_student_problems(client, instructor, other_instructor, course_setup):
+    from learn.models import Event
+    from learn.services import enrollments, quizzes
+
+    course, lesson1, _, quiz = course_setup
+    enr, _ = enrollments.join(course, name="Sam", email="sam@example.com")
+    start = quizzes.start(enr, quiz.id)
+    r = quizzes.grade_and_next(enr, start["attempt_id"], start["question"]["question_id"], "A")
+    quizzes.grade_and_next(enr, start["attempt_id"], r["next_question"]["question_id"], "type()")
+    quizzes.submit_report(enr, start["attempt_id"], "Confused ints and floats.", ["number types"])
+    enrollments.report_problem(enr, lesson_id=lesson1.id, concept="Floats", category="concept", note="decimals?")
+
+    client.force_login(instructor.user)
+    dash = client.get(f"/api/teach/courses/{course.id}/dashboard").json()
+    assert dash["open_problem_count"] == 2
+    assert dash["students"][0]["problem_count"] == 2
+    assert {p["category"] for p in dash["problems"]} == {"quiz_mistakes", "concept"}
+    assert any(w["concept"] == "number types" for w in dash["weak_concepts"])
+
+    detail = client.get(f"/api/teach/students/{enr.id}").json()
+    attempt = detail["attempts"][0]
+    assert attempt["summary"] == "Confused ints and floats." and attempt["incorrect"] == 1
+    assert len(detail["problems"]) == 2
+
+    pid = Event.objects.get(enrollment=enr, category="concept").id
+    resp = post(client, f"/api/teach/problems/{pid}", {"resolved": True, "instructor_note": "Explained in class"}, "patch")
+    assert resp.status_code == 200 and resp.json()["resolved_at"]
+    assert client.get(f"/api/teach/courses/{course.id}/dashboard").json()["open_problem_count"] == 1
+
+    client.force_login(other_instructor.user)
+    assert post(client, f"/api/teach/problems/{pid}", {"resolved": False}, "patch").status_code == 404

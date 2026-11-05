@@ -17,7 +17,7 @@ export default {
         ok: "var(--ok)",
       },
       fontFamily: {
-        display: ["var(--font-display)", "var(--font-body)", "sans-serif"],
+        display: ["var(--font-body)", "system-ui", "sans-serif"],
         body: ["var(--font-body)", "system-ui", "sans-serif"],
       },
       maxWidth: { prose: "72ch" },

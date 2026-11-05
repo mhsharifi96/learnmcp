@@ -1,4 +1,4 @@
-"""learnmcp MCP server: seven tools that call the synchronous Django services."""
+"""learnmcp MCP server: eight tools that call the synchronous Django services."""
 
 import logging
 import time
@@ -32,7 +32,9 @@ INSTRUCTIONS = """learnmcp connects this student to the course their instructor 
   ask ONE question at a time, wait for the reply and pass it unchanged to submit_answer; never grade it yourself.
   AI-generated quizzes (mode "ai_generated"): write one question at a time from the instructor's prompt,
   wait for the reply, judge it, and record it with record_ai_answer. Never answer for the student.
-- When the student says they don't understand or keeps missing a concept, call report_stuck, then explain.
+- When a quiz finishes, report each mistake to the student, then call submit_quiz_report with a short summary.
+- Whenever the student has a learning problem (doesn't understand, keeps making the same mistake, lacks
+  background, loses focus, or has a technical issue), call report_problem so the instructor can follow up.
 - Use get_progress when the student asks where they are or what's next.
 Only explicit tool calls are shared with the instructor; the conversation itself is not recorded."""
 
@@ -179,22 +181,54 @@ async def record_ai_answer(
     )
 
 
-@mcp.tool(title="Report stuck", annotations=WRITE, structured_output=True)
-async def report_stuck(concept: str, ctx: Context, lesson_id: int | None = None, note: str = "") -> dict[str, Any]:
-    """Tell the instructor the student is stuck on a concept.
+@mcp.tool(title="Report a student problem", annotations=WRITE, structured_output=True)
+async def report_problem(
+    concept: str,
+    ctx: Context,
+    category: str = "concept",
+    severity: str = "medium",
+    lesson_id: int | None = None,
+    note: str = "",
+) -> dict[str, Any]:
+    """Tell the instructor about a learning problem so they can follow up with the student.
 
-    Call this when the student says they don't understand something, or keeps getting the same
-    concept wrong. concept: a few words naming the idea (e.g. "list comprehensions").
-    lesson_id: the current lesson, if known. note: optional short description in the student's words.
-    Call it first, then explain the concept again."""
+    Call this when the student says they don't understand something, keeps making the same mistake,
+    is missing background knowledge, loses motivation, or hits a technical issue.
+    concept: a few words naming the topic (e.g. "past simple irregular verbs").
+    category: one of concept, repeated_mistake, prerequisite, engagement, technical, other.
+    severity: low, medium or high (high = the student cannot continue without help).
+    lesson_id: the current lesson, if known. note: one or two sentences describing what went wrong.
+    Call it first, then help the student a different way."""
     return await _call(
-        ctx, "report_stuck", enrollments.report_stuck, lesson_id=lesson_id, concept=concept, note=note
+        ctx,
+        "report_problem",
+        enrollments.report_problem,
+        lesson_id=lesson_id,
+        concept=concept,
+        category=category,
+        severity=severity,
+        note=note,
+    )
+
+
+@mcp.tool(title="Submit quiz report", annotations=WRITE, structured_output=True)
+async def submit_quiz_report(
+    attempt_id: int, summary: str, ctx: Context, weak_concepts: list[str] | None = None
+) -> dict[str, Any]:
+    """Send the instructor a short report after a quiz is finished.
+
+    Call this once, right after the last answer of a quiz (when the response has finished=true).
+    summary: 2-4 sentences on how the quiz went, which questions the student got wrong and what
+    they seem to misunderstand. weak_concepts: the concepts the student should review."""
+    return await _call(
+        ctx, "submit_quiz_report", quizzes.submit_report, attempt_id=attempt_id, summary=summary,
+        weak_concepts=weak_concepts,
     )
 
 
 @mcp.tool(title="Get progress", annotations=READ_ONLY, structured_output=True)
 async def get_progress(ctx: Context) -> dict[str, Any]:
-    """Summarise the student's progress (lessons, quiz scores, stuck concepts) and suggest a next step.
+    """Summarise the student's progress (lessons, quiz scores, open problems) and suggest a next step.
 
     Call this when the student asks "where am I?", "how am I doing?" or "what's next?"."""
     return await _call(ctx, "get_progress", progress.student_progress)

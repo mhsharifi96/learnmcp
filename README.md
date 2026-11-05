@@ -4,7 +4,7 @@ An MCP server and a Django panel that connect an **instructor** to their **stude
 
 - Instructors create classes, lessons and quizzes in Django admin (`/admin/`) and watch a per-class dashboard.
 - Students join with a code or link, give consent and get a **personal MCP URL** (`/s/{token}/mcp`) to add as a custom connector.
-- In chat, the AI uses seven tools: `list_my_courses`, `get_lesson`, `start_quiz`, `submit_answer`, `record_ai_answer`, `report_stuck` and `get_progress`.
+- In chat, the AI uses eight tools: `list_my_courses`, `get_lesson`, `start_quiz`, `submit_answer`, `record_ai_answer`, `submit_quiz_report`, `report_problem` and `get_progress`.
 - Lessons: the instructor writes either the full lesson text or just a short **lesson prompt**; with only a prompt, the student's AI builds the lesson plan itself.
 - Quizzes have two modes. **I write the questions**: graded on the server, and the correct answer is never sent before the student answers. **The AI writes the questions from my prompt**: the student's AI writes and judges each question and records it with `record_ai_answer`, so the instructor still sees every question, answer and score.
 - Web UI: a bilingual (Persian/English) Next.js app in [frontend/](frontend/) for students (join, connect, my data) and instructors (classes, lessons, quizzes, dashboard, review). It talks to Django through the JSON API under `/api/`. In Docker, an nginx `gateway` service sends `/api`, `/admin`, `/s/` (MCP), OAuth and `/static` to Django and everything else to Next.js. Django admin stays available at `/admin/`.

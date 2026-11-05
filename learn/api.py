@@ -15,6 +15,7 @@ from django.core.exceptions import ValidationError
 from django.db import transaction
 from django.db.models import Count
 from django.http import JsonResponse
+from django.utils import timezone
 from django.views.decorators.csrf import ensure_csrf_cookie
 
 from learn import views as pages
@@ -33,7 +34,7 @@ from learn.models import (
     Student,
     ToolCall,
 )
-from learn.services import ServiceError, enrollments, progress, quizzes, tokens
+from learn.services import ServiceError, enrollments, grading, progress, quizzes, tokens
 
 
 class ApiError(Exception):
@@ -264,20 +265,30 @@ def _answer_payload(a: Answer) -> dict:
 
 def _attempt_payload(attempt: QuizAttempt, with_expected: bool = False) -> dict:
     answers = []
-    for a in attempt.answers.all():
+    for a in sorted(attempt.answers.all(), key=lambda a: (a.question.order, a.question_id)):
         item = _answer_payload(a)
         if with_expected:
-            item["expected"] = a.question.correct_answer
+            item["expected"] = grading.display_correct_answer(a.question)
+            item["explanation"] = a.question.explanation
             item["concept"] = a.question.concept
             item["ai_generated"] = a.question.attempt_id is not None
         answers.append(item)
+    statuses = [a["status"] for a in answers]
+    total = attempt.quiz.ai_question_count if attempt.quiz.is_ai else None
     return {
         "id": attempt.id,
         "quiz": attempt.quiz.title,
+        "lesson": attempt.quiz.lesson.title if attempt.quiz.lesson else None,
         "ai_generated": attempt.quiz.is_ai,
         "started_at": _dt(attempt.started_at),
         "finished_at": _dt(attempt.finished_at),
         "score_percent": attempt.score_percent,
+        "correct": statuses.count(Answer.CORRECT),
+        "incorrect": statuses.count(Answer.INCORRECT),
+        "needs_review": statuses.count(Answer.NEEDS_REVIEW),
+        "total": total or len(answers),
+        "summary": attempt.summary,
+        "weak_concepts": attempt.weak_concepts_json,
         "answers": answers,
     }
 
@@ -289,8 +300,27 @@ def _event_payload(ev: Event) -> dict:
         "lesson": ev.lesson.title if ev.lesson else None,
         "concept": ev.concept,
         "note": ev.note,
+        "category": ev.category,
         "client": ev.client,
         "created_at": _dt(ev.created_at),
+    }
+
+
+def _problem_payload(ev: Event) -> dict:
+    return {
+        "id": ev.id,
+        "enrollment_id": ev.enrollment_id,
+        "student": ev.enrollment.student.name,
+        "category": ev.category or Event.CAT_OTHER,
+        "severity": ev.severity or Event.MEDIUM,
+        "concept": ev.concept,
+        "note": ev.note,
+        "lesson": ev.lesson.title if ev.lesson else None,
+        "quiz": ev.attempt.quiz.title if ev.attempt_id and ev.attempt else None,
+        "attempt_id": ev.attempt_id,
+        "created_at": _dt(ev.created_at),
+        "resolved_at": _dt(ev.resolved_at),
+        "instructor_note": ev.instructor_note,
     }
 
 
@@ -497,7 +527,7 @@ def teach_dashboard(request, course_id: int):
                 "inactive": s["inactive"],
                 "avg_score_percent": s["avg_score_percent"],
                 "quizzes_done": s["quizzes_done"],
-                "stuck_count": s["stuck_count"],
+                "problem_count": s["problem_count"],
             }
             for s in d["students"]
         ],
@@ -512,7 +542,9 @@ def teach_dashboard(request, course_id: int):
             }
             for r in d["questions"]
         ],
-        "stuck": d["stuck"],
+        "weak_concepts": d["weak_concepts"],
+        "problems": [_problem_payload(ev) for ev in d["problems"]],
+        "open_problem_count": d["open_problem_count"],
     }
 
 
@@ -625,20 +657,56 @@ def teach_student(request, enrollment_id: int):
     enr = (
         Enrollment.objects.filter(pk=enrollment_id, course__in=_courses(request))
         .select_related("student", "course")
-        .prefetch_related("events__lesson", "attempts__quiz", "attempts__answers__question")
+        .prefetch_related(
+            "events__lesson", "events__attempt__quiz", "attempts__quiz__lesson", "attempts__answers__question"
+        )
         .first()
     )
     if enr is None:
         raise ApiError("Student not found.", 404)
+    attempts = list(enr.attempts.all())
+    finished = [a for a in attempts if a.finished_at and a.score is not None]
+    problems = sorted(
+        (ev for ev in enr.events.all() if ev.type == Event.PROBLEM),
+        key=lambda ev: (ev.resolved_at is not None, -ev.created_at.timestamp()),
+    )
     return {
         "id": enr.id,
         "course": {"id": enr.course_id, "title": enr.course.title},
         "student": {"name": enr.student.name, "email": enr.student.email},
         "joined_at": _dt(enr.joined_at),
         "last_activity_at": _dt(enr.last_activity_at),
-        "attempts": [_attempt_payload(a, with_expected=True) for a in enr.attempts.all()],
+        "avg_score_percent": round(100 * sum(a.score for a in finished) / len(finished)) if finished else None,
+        "score_trend": [
+            {"quiz": a.quiz.title, "score_percent": a.score_percent, "finished_at": _dt(a.finished_at)}
+            for a in sorted(finished, key=lambda a: a.finished_at)
+        ],
+        "attempts": [_attempt_payload(a, with_expected=True) for a in attempts],
+        "problems": [_problem_payload(ev) for ev in problems],
         "events": [_event_payload(ev) for ev in enr.events.all()],
     }
+
+
+@api(methods=("PATCH",), teach=True)
+def teach_problem(request, event_id: int):
+    ev = (
+        Event.objects.filter(pk=event_id, type=Event.PROBLEM, enrollment__course__in=_courses(request))
+        .select_related("enrollment__student", "lesson", "attempt__quiz")
+        .first()
+    )
+    if ev is None:
+        raise ApiError("Problem not found.", 404)
+    data = _body(request)
+    fields = []
+    if "resolved" in data:
+        ev.resolved_at = timezone.now() if data["resolved"] else None
+        fields.append("resolved_at")
+    if "instructor_note" in data:
+        ev.instructor_note = str(data["instructor_note"] or "").strip()[:2000]
+        fields.append("instructor_note")
+    if fields:
+        ev.save(update_fields=fields)
+    return _problem_payload(ev)
 
 
 @api(teach=True)

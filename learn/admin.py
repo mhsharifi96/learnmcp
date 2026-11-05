@@ -346,7 +346,7 @@ class QuestionAdmin(InstructorScopedMixin, admin.ModelAdmin):
 
 class EventInline(ReadOnlyInline):
     model = Event
-    fields = ("created_at", "type", "lesson", "concept", "note", "client")
+    fields = ("created_at", "type", "category", "severity", "lesson", "concept", "note", "resolved_at", "client")
     readonly_fields = fields
     show_change_link = False
     ordering = ("-created_at",)
@@ -467,10 +467,13 @@ class AnswerAdmin(InstructorScopedMixin, admin.ModelAdmin):
 @admin.register(Event)
 class EventAdmin(InstructorScopedMixin, admin.ModelAdmin):
     course_path = "enrollment__course"
-    list_display = ("created_at", "type", "student", "lesson", "concept", "client")
-    list_filter = ("type", ("enrollment__course", admin.RelatedOnlyFieldListFilter))
+    list_display = ("created_at", "type", "category", "severity", "student", "lesson", "concept", "resolved_at", "client")
+    list_filter = ("type", "category", "severity", ("enrollment__course", admin.RelatedOnlyFieldListFilter))
     search_fields = ("concept", "note", "enrollment__student__name")
-    readonly_fields = ("enrollment", "type", "lesson", "concept", "note", "client", "created_at")
+    readonly_fields = (
+        "enrollment", "type", "category", "severity", "lesson", "attempt", "concept", "note",
+        "resolved_at", "instructor_note", "client", "created_at",
+    )
 
     def has_add_permission(self, request):
         return False

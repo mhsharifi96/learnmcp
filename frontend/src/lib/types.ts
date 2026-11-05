@@ -32,3 +32,18 @@ export type CourseSummary = {
   lessons: number | null;
 };
 export type CourseDetail = Omit<CourseSummary, "lessons"> & { lessons: Lesson[]; quizzes: QuizSummary[]; student_count: number };
+export type Problem = {
+  id: number;
+  enrollment_id: number;
+  student: string;
+  category: string;
+  severity: "low" | "medium" | "high" | string;
+  concept: string;
+  note: string;
+  lesson: string | null;
+  quiz: string | null;
+  attempt_id: number | null;
+  created_at: string;
+  resolved_at: string | null;
+  instructor_note: string;
+};

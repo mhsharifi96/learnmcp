@@ -77,7 +77,7 @@ def test_dashboard_shows_scores_stuck_and_inactive(client, instructor, course_se
     start = quizzes.start(enr, quiz.id)
     r = quizzes.grade_and_next(enr, start["attempt_id"], start["question"]["question_id"], "A")
     quizzes.grade_and_next(enr, start["attempt_id"], r["next_question"]["question_id"], "type")
-    enrollments.report_stuck(enr, lesson_id=lesson1.id, concept="Floats", note="decimals?")
+    enrollments.report_problem(enr, lesson_id=lesson1.id, concept="Floats", note="decimals?")
 
     login(client, instructor)
     resp = client.get(reverse("admin:learn_course_dashboard", args=[course.pk]))
@@ -85,7 +85,7 @@ def test_dashboard_shows_scores_stuck_and_inactive(client, instructor, course_se
     body = resp.content.decode()
     assert "Sam" in body and "Idle Ivy" in body
     assert "50%" in body  # one of two correct
-    assert "floats" in body  # stuck concept (normalised to lowercase)
+    assert "Floats" in body and "decimals?" in body  # reported problem
     assert "inactive" in body  # Ivy never did anything
     assert "Type of 3.5?" in body  # most-missed question
     ctx = resp.context

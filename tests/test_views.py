@@ -65,7 +65,7 @@ def test_my_data_regenerate_and_leave(client, course_setup):
         {"name": "Sam", "email": "sam@example.com", "consent": "on"},
     )
     enrollment = Enrollment.objects.get()
-    Event.objects.create(enrollment=enrollment, type=Event.STUCK, lesson=lesson1, concept="floats")
+    Event.objects.create(enrollment=enrollment, type=Event.PROBLEM, lesson=lesson1, concept="floats")
     page = client.get(reverse("learn:me")).content.decode()
     assert "floats" in page and course.title in page
 

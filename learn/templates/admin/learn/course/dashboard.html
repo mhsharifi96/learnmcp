@@ -32,7 +32,7 @@
   <div class="lm-section module">
     <h2>Students</h2>
     <table>
-      <thead><tr><th>Student</th><th>Last activity</th><th>Avg. quiz score</th><th>Quizzes done</th><th>"Stuck" reports</th></tr></thead>
+      <thead><tr><th>Student</th><th>Last activity</th><th>Avg. quiz score</th><th>Quizzes done</th><th>Open problems</th></tr></thead>
       <tbody>
       {% for s in students %}
         <tr>
@@ -40,7 +40,7 @@
           <td>{% if s.last_activity %}{{ s.last_activity|timesince }} ago{% else %}never{% endif %}{% if s.inactive %} <span class="lm-inactive">· inactive</span>{% endif %}</td>
           <td>{% if s.avg_score_percent is not None %}{{ s.avg_score_percent }}%{% else %}—{% endif %}</td>
           <td>{{ s.quizzes_done }}</td>
-          <td>{{ s.stuck_count }}</td>
+          <td>{{ s.problem_count }}</td>
         </tr>
       {% empty %}
         <tr><td colspan="5">No students yet. Share the invite link from the <a href="{% url 'admin:learn_course_change' course.pk %}">class page</a> (code <strong>{{ course.join_code }}</strong>).</td></tr>
@@ -69,13 +69,20 @@
   </div>
 
   <div class="lm-section module">
-    <h2>Most frequent "stuck" concepts</h2>
+    <h2>Student problems</h2>
     <table>
-      <thead><tr><th>Concept</th><th>Reports</th><th>Example notes</th></tr></thead>
+      <thead><tr><th>When</th><th>Student</th><th>Category</th><th>Topic</th><th>Details</th><th>Status</th></tr></thead>
       <tbody>
-      {% for s in stuck %}
-        <tr><td>{{ s.concept }}</td><td>{{ s.count }}</td><td>{% for n in s.notes %}<div>{{ n }}</div>{% empty %}—{% endfor %}</td></tr>
-      {% empty %}<tr><td colspan="3">No "stuck" reports yet.</td></tr>{% endfor %}
+      {% for p in problems %}
+        <tr>
+          <td>{{ p.created_at|timesince }} ago</td>
+          <td>{{ p.enrollment.student.name }}</td>
+          <td>{{ p.get_category_display|default:"—" }} ({{ p.get_severity_display|default:"—" }})</td>
+          <td>{{ p.concept|default:"—" }}</td>
+          <td>{{ p.note|default:"—" }}</td>
+          <td>{% if p.resolved_at %}resolved{% else %}<strong>open</strong>{% endif %}</td>
+        </tr>
+      {% empty %}<tr><td colspan="6">No problems reported yet.</td></tr>{% endfor %}
       </tbody>
     </table>
   </div>

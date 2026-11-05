@@ -39,8 +39,8 @@ async def test_tool_list_is_small_and_described():
     async with Client(mcp) as client:
         tools = (await client.list_tools()).tools
     assert {t.name for t in tools} == {
-        "list_my_courses", "get_lesson", "start_quiz", "submit_answer", "record_ai_answer", "report_stuck",
-        "get_progress",
+        "list_my_courses", "get_lesson", "start_quiz", "submit_answer", "record_ai_answer", "report_problem",
+        "submit_quiz_report", "get_progress",
     }
     for tool in tools:
         assert "Call" in (tool.description or "")
@@ -74,22 +74,35 @@ async def test_full_student_session(as_student, course_setup):
             )
         )
         assert r2["finished"] and r2["score"]["score_percent"] == 100
+        assert r2["report"]["all_correct"] and "submit_quiz_report" in r2["instructions"]
 
-        stuck = payload(
-            await client.call_tool("report_stuck", {"lesson_id": lesson2.id, "concept": "for loops", "note": "range?"})
+        rep = payload(
+            await client.call_tool(
+                "submit_quiz_report",
+                {"attempt_id": started["attempt_id"], "summary": "All correct.", "weak_concepts": []},
+            )
         )
-        assert stuck["recorded"]
+        assert rep["recorded"]
+
+        problem = payload(
+            await client.call_tool(
+                "report_problem",
+                {"lesson_id": lesson2.id, "concept": "for loops", "category": "repeated_mistake", "note": "range?"},
+            )
+        )
+        assert problem["recorded"]
 
         progress = payload(await client.call_tool("get_progress", {}))
         assert progress["courses"][0]["average_quiz_score_percent"] == 100
         assert "Loops" in progress["courses"][0]["suggested_next_step"]
 
     types = await sync_to_async(lambda: set(Event.objects.filter(enrollment=enrollment).values_list("type", flat=True)))()
-    assert {"lesson_started", "quiz_started", "quiz_finished", "stuck", "progress_viewed"} <= types
-    stuck_event = await sync_to_async(Event.objects.get)(enrollment=enrollment, type="stuck")
-    assert stuck_event.concept == "for loops" and stuck_event.lesson_id == lesson2.id and stuck_event.client == "claude"
+    assert {"lesson_started", "quiz_started", "quiz_finished", "problem", "progress_viewed"} <= types
+    ev = await sync_to_async(Event.objects.get)(enrollment=enrollment, type="problem")
+    assert ev.concept == "for loops" and ev.lesson_id == lesson2.id and ev.client == "claude"
+    assert ev.category == "repeated_mistake"
     calls = await sync_to_async(lambda: list(ToolCall.objects.values_list("tool", "ok")))()
-    assert len(calls) == 7 and all(ok for _, ok in calls)
+    assert len(calls) == 8 and all(ok for _, ok in calls)
 
 
 async def test_bad_ids_return_readable_errors(as_student):

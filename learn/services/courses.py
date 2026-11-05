@@ -26,7 +26,7 @@ TEACHING_RULES = (
     "Teach this lesson conversationally, one idea at a time, and check understanding with short questions. "
     "Stay within the lesson content and objectives. "
     "If the student says they don't understand something, or keeps getting one concept wrong, "
-    "call report_stuck with that concept FIRST, then explain it another way. "
+    "call report_problem with that concept FIRST (category 'concept' or 'repeated_mistake'), then explain it another way. "
     "When the student is ready to be tested, call start_quiz with the quiz_id listed below. "
     "During a quiz follow the instructions start_quiz returns: for instructor-written quizzes ask ONE question "
     "at a time and send the reply unchanged to submit_answer (never judge it yourself); for AI-generated "

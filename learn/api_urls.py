@@ -29,4 +29,5 @@ urlpatterns = [
     path("teach/questions/<int:question_id>", api.teach_question),
     path("teach/students/<int:enrollment_id>", api.teach_student),
     path("teach/answers/<int:answer_id>", api.teach_answer),
+    path("teach/problems/<int:event_id>", api.teach_problem),
 ]

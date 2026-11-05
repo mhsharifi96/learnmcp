@@ -1,12 +1,12 @@
 import type { Metadata } from "next";
 import { cookies } from "next/headers";
-import { Lalezar, Vazirmatn } from "next/font/google";
+import { Vazirmatn } from "next/font/google";
 import { LangProvider } from "@/components/lang";
 import { SiteHeader } from "@/components/site-header";
 import { DEFAULT_LANG, isLang, LANG_COOKIE } from "@/lib/i18n";
 import "./globals.css";
 
-const display = Lalezar({ weight: "400", subsets: ["arabic", "latin"], variable: "--font-display", display: "swap" });
+// Vazirmatn (Vazir) for Persian and Latin text, body and headings alike.
 const body = Vazirmatn({ subsets: ["arabic", "latin"], variable: "--font-body", display: "swap" });
 
 export const metadata: Metadata = {
@@ -18,7 +18,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   const stored = (await cookies()).get(LANG_COOKIE)?.value;
   const lang = isLang(stored) ? stored : DEFAULT_LANG;
   return (
-    <html lang={lang} dir={lang === "fa" ? "rtl" : "ltr"} className={`${display.variable} ${body.variable}`}>
+    <html lang={lang} dir={lang === "fa" ? "rtl" : "ltr"} className={body.variable}>
       <body className="min-h-screen bg-mist">
         <LangProvider lang={lang}>
           <SiteHeader />

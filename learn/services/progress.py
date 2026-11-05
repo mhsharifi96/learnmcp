@@ -4,7 +4,7 @@ from collections import Counter
 from datetime import timedelta
 
 from django.conf import settings
-from django.db.models import Avg, Count, Max, Q
+from django.db.models import Avg, Count, F, Max, Q
 from django.utils import timezone
 
 from learn.models import Answer, Enrollment, Event, Lesson, Question, Quiz, QuizAttempt
@@ -31,7 +31,7 @@ def _next_step(course, statuses, finished_quiz_ids) -> str:
     for quiz in Quiz.objects.filter(course=course, lesson__isnull=True):
         if quiz.id not in finished_quiz_ids:
             return f'Take the class quiz "{quiz.title}" (quiz_id={quiz.id}).'
-    return "Everything in this class is done. Review any concepts marked as stuck, or retake a quiz."
+    return "Everything in this class is done. Review the concepts listed in open_problems, or retake a quiz."
 
 
 def student_progress(enrollment, *, client: str = "") -> dict:
@@ -47,9 +47,11 @@ def student_progress(enrollment, *, client: str = "") -> dict:
         lesson_ids = list(Lesson.objects.filter(course=course).values_list("id", flat=True))
         course_attempts = finished.filter(enrollment=enr)
         avg = course_attempts.aggregate(a=Avg("score"))["a"]
-        stuck = Counter(
+        problems = Counter(
             c.strip().lower()
-            for c in Event.objects.filter(enrollment=enr, type=Event.STUCK).values_list("concept", flat=True)
+            for c in Event.objects.filter(
+                enrollment=enr, type=Event.PROBLEM, resolved_at__isnull=True
+            ).values_list("concept", flat=True)
             if c.strip()
         )
         courses.append(
@@ -61,7 +63,7 @@ def student_progress(enrollment, *, client: str = "") -> dict:
                 "lessons_with_quiz_done": sum(1 for i in lesson_ids if statuses.get(i) == LESSON_QUIZ_DONE),
                 "quizzes_finished": course_attempts.values("quiz_id").distinct().count(),
                 "average_quiz_score_percent": None if avg is None else round(avg * 100),
-                "stuck_concepts": [c for c, _ in stuck.most_common(5)],
+                "open_problems": [c for c, _ in problems.most_common(5)],
                 "suggested_next_step": _next_step(course, statuses, finished_quiz_ids),
             }
         )
@@ -81,7 +83,9 @@ def course_dashboard(course) -> dict:
         .select_related("student")
         .annotate(
             avg_score=Avg("attempts__score", filter=Q(attempts__finished_at__isnull=False)),
-            stuck_count=Count("events", filter=Q(events__type=Event.STUCK), distinct=True),
+            problem_count=Count(
+                "events", filter=Q(events__type=Event.PROBLEM, events__resolved_at__isnull=True), distinct=True
+            ),
             quizzes_done=Count("attempts", filter=Q(attempts__finished_at__isnull=False), distinct=True),
             last_event=Max("events__created_at"),
         )
@@ -100,7 +104,7 @@ def course_dashboard(course) -> dict:
                 "inactive": last is None or (now - last) > inactive_after,
                 "avg_score_percent": None if enr.avg_score is None else round(enr.avg_score * 100),
                 "quizzes_done": enr.quizzes_done,
-                "stuck_count": enr.stuck_count,
+                "problem_count": enr.problem_count,
             }
         )
 
@@ -129,19 +133,32 @@ def course_dashboard(course) -> dict:
         )
     questions.sort(key=lambda r: (r["correct_rate"] if r["correct_rate"] is not None else 101, -r["answered"]))
 
-    stuck_counter: Counter = Counter()
-    stuck_examples: dict[str, list[str]] = {}
-    for concept, note, name in Event.objects.filter(enrollment__course=course, type=Event.STUCK).values_list(
-        "concept", "note", "enrollment__student__name"
-    ):
-        key = (concept or "(unspecified)").strip().lower()
-        stuck_counter[key] += 1
-        if note and len(stuck_examples.setdefault(key, [])) < 3:
-            stuck_examples[key].append(f"{name}: {note}")
-
-    stuck = [
-        {"concept": c, "count": n, "notes": stuck_examples.get(c, [])} for c, n in stuck_counter.most_common(15)
+    # Weak concepts: open problem reports plus concepts of wrongly answered questions.
+    weak: Counter = Counter()
+    weak_students: dict[str, set] = {}
+    for concept, name in Event.objects.filter(
+        enrollment__course=course, type=Event.PROBLEM, resolved_at__isnull=True
+    ).values_list("concept", "enrollment__student__name"):
+        for c in (concept or "").split(","):
+            key = c.strip().lower()
+            if key:
+                weak[key] += 1
+                weak_students.setdefault(key, set()).add(name)
+    for concept, name in Answer.objects.filter(
+        attempt__enrollment__course=course, status=Answer.INCORRECT
+    ).exclude(question__concept="").values_list("question__concept", "attempt__enrollment__student__name"):
+        key = concept.strip().lower()
+        weak[key] += 1
+        weak_students.setdefault(key, set()).add(name)
+    weak_concepts = [
+        {"concept": c, "count": n, "students": sorted(weak_students.get(c, set()))} for c, n in weak.most_common(12)
     ]
+
+    problems = list(
+        Event.objects.filter(enrollment__course=course, type=Event.PROBLEM)
+        .select_related("enrollment__student", "lesson", "attempt__quiz")
+        .order_by(F("resolved_at").asc(nulls_first=True), "-created_at")[:60]
+    )
 
     return {
         "students": students,
@@ -149,7 +166,11 @@ def course_dashboard(course) -> dict:
         "inactive_count": sum(1 for s in students if s["inactive"]),
         "inactive_days": settings.INACTIVE_AFTER_DAYS,
         "questions": questions[:15],
-        "stuck": stuck,
+        "weak_concepts": weak_concepts,
+        "problems": problems,
+        "open_problem_count": Event.objects.filter(
+            enrollment__course=course, type=Event.PROBLEM, resolved_at__isnull=True
+        ).count(),
         "needs_review_count": Answer.objects.filter(
             attempt__enrollment__course=course, status=Answer.NEEDS_REVIEW
         ).count(),

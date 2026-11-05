@@ -1,4 +1,4 @@
-"""Joining, leaving, and the "I'm stuck" signal."""
+"""Joining, leaving, and reporting a student's learning problems to the instructor."""
 
 from django.db import transaction
 from django.utils import timezone
@@ -36,19 +36,43 @@ def leave(enrollment) -> None:
         student.delete()
 
 
-def report_stuck(enrollment, *, lesson_id: int | None, concept: str, note: str = "", client: str = "") -> dict:
+PROBLEM_CATEGORIES = {c for c, _ in Event.CATEGORY_CHOICES}
+SEVERITIES = {c for c, _ in Event.SEVERITY_CHOICES}
+
+
+def report_problem(
+    enrollment,
+    *,
+    lesson_id: int | None,
+    concept: str,
+    category: str = Event.CAT_CONCEPT,
+    severity: str = Event.MEDIUM,
+    note: str = "",
+    client: str = "",
+) -> dict:
+    """Record a learning problem so the instructor can follow up with the student."""
     concept = (concept or "").strip()
     if not concept:
-        raise ServiceError("Give the concept the student is stuck on (a few words), then call report_stuck again.")
+        raise ServiceError("Give the topic of the problem (a few words), then call report_problem again.")
+    category = (category or Event.CAT_CONCEPT).strip().lower()
+    if category not in PROBLEM_CATEGORIES:
+        raise ServiceError(f"category must be one of: {', '.join(sorted(PROBLEM_CATEGORIES))}.")
+    severity = (severity or Event.MEDIUM).strip().lower()
+    if severity not in SEVERITIES:
+        raise ServiceError("severity must be low, medium or high.")
     lesson = None
     target = enrollment
     if lesson_id:
         lesson = get_accessible_lesson(enrollment, lesson_id)
         target = enrollment_for_course(enrollment, lesson.course_id)
-    events.record(target, Event.STUCK, lesson=lesson, concept=concept, note=note, client=client)
+    events.record(
+        target, Event.PROBLEM, lesson=lesson, concept=concept, note=note, category=category, severity=severity,
+        client=client,
+    )
     return {
         "recorded": True,
         "concept": concept,
+        "category": category,
         "lesson": lesson.title if lesson else None,
-        "instructions": "Tell the student their instructor has been notified, then explain the concept a different way.",
+        "instructions": "Tell the student their instructor has been notified, then help them a different way.",
     }

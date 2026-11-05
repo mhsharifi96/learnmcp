@@ -13,6 +13,12 @@
   --quiet: #55666e;
   --danger: #b3261e;
   --ok: #1f7a3f;
+  /* Motion tokens */
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --dur-fast: 150ms;
+  --dur-med: 280ms;
+  --dur-slow: 600ms;
 }
 
 html { background: var(--mist); color: var(--ink); }
@@ -33,3 +39,80 @@ td { padding: 0.6rem 0.75rem; border-bottom: 1px solid var(--line); vertical-ali
 .bubble-1 { animation: bubble-in 0.4s ease-out both; }
 .bubble-2 { animation: bubble-in 0.4s ease-out 0.9s both; }
 @media (prefers-reduced-motion: reduce) { .bubble-1, .bubble-2 { animation: none; } }
+
+/* Vazirmatn headings: heavier weight replaces the old display face. */
+.font-display { font-weight: 800; letter-spacing: -0.01em; }
+
+tbody tr { transition: background-color 150ms ease; }
+tbody tr:hover { background: color-mix(in srgb, var(--mist) 70%, transparent); }
+
+@keyframes fade-up { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+.fade-up { animation: fade-up var(--dur-slow) var(--ease-out) both; }
+
+/* Stagger children in sequence (0.06s apart). */
+.stagger > * { animation: fade-up var(--dur-slow) var(--ease-out) both; }
+.stagger > *:nth-child(1) { animation-delay: 0.02s; }
+.stagger > *:nth-child(2) { animation-delay: 0.08s; }
+.stagger > *:nth-child(3) { animation-delay: 0.14s; }
+.stagger > *:nth-child(4) { animation-delay: 0.2s; }
+.stagger > *:nth-child(5) { animation-delay: 0.26s; }
+.stagger > *:nth-child(6) { animation-delay: 0.32s; }
+.stagger > *:nth-child(7) { animation-delay: 0.38s; }
+.stagger > *:nth-child(n + 8) { animation-delay: 0.44s; }
+
+/* Bars grow from their start edge (transform only, no layout work). */
+@keyframes grow-x { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+@keyframes grow-y { from { transform: scaleY(0); } to { transform: scaleY(1); } }
+.bar-grow { transform-origin: left center; animation: grow-x 0.9s var(--ease-out) 0.15s both; }
+[dir="rtl"] .bar-grow { transform-origin: right center; }
+.bar-grow-y { transform-origin: bottom center; animation: grow-y 0.8s var(--ease-spring) both; }
+
+/* Spring pop for chips and badges. */
+@keyframes pop-in { from { opacity: 0; transform: scale(0.85); } to { opacity: 1; transform: scale(1); } }
+.pop-in { animation: pop-in 0.45s var(--ease-spring) both; }
+
+/* Card lift on hover. */
+.lift { transition: transform var(--dur-med) var(--ease-spring), box-shadow var(--dur-med) ease, border-color var(--dur-fast) ease; }
+.lift:hover { transform: translateY(-2px); box-shadow: 0 8px 24px -12px color-mix(in srgb, var(--lapis) 35%, transparent); }
+
+/* Disclosure content fades in when opened. */
+details[open] > :not(summary) { animation: fade-up var(--dur-med) var(--ease-out) both; }
+details > summary svg { transition: transform var(--dur-med) var(--ease-spring); }
+details[open] > summary svg:last-child { transform: rotate(180deg); }
+
+/* ------------------------------------------------------------ home feature demo
+   Before -> Action -> After loop. JS only toggles .s1...s5 on the stage. Hidden
+   elements pair opacity with visibility (no ghost frames). */
+.demo .d-el {
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(10px) scale(0.98);
+  transition: opacity 0.4s ease-out, transform 0.6s var(--ease-spring), visibility 0s 0.4s;
+}
+.demo.s1 .d-1, .demo.s2 .d-2, .demo.s3 .d-3, .demo.s4 .d-4, .demo.s5 .d-5 {
+  opacity: 1;
+  visibility: visible;
+  transform: none;
+  transition: opacity 0.4s ease-out, transform 0.6s var(--ease-spring), visibility 0s 0s;
+}
+.demo .d-4 .d-fill { transform: scaleX(0); transform-origin: left center; transition: transform 1s var(--ease-out) 0.25s; }
+[dir="rtl"] .demo .d-4 .d-fill { transform-origin: right center; }
+.demo.s4 .d-4 .d-fill { transform: scaleX(1); }
+.demo .d-typing span { display: inline-block; width: 6px; height: 6px; border-radius: 9999px; background: currentColor; animation: typing 1s infinite ease-in-out; }
+.demo .d-typing span:nth-child(2) { animation-delay: 0.15s; }
+.demo .d-typing span:nth-child(3) { animation-delay: 0.3s; }
+@keyframes typing { 0%, 80%, 100% { opacity: 0.25; transform: translateY(0); } 40% { opacity: 1; transform: translateY(-3px); } }
+.demo.s3 .d-typing { display: none; }
+@keyframes pulse-ring { 0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--ok) 45%, transparent); } 100% { box-shadow: 0 0 0 10px transparent; } }
+.demo.s5 .d-5 { animation: pulse-ring 1.2s ease-out 0.2s 2; }
+
+@media (prefers-reduced-motion: reduce) {
+  .fade-up, .stagger > *, .bar-grow, .bar-grow-y, .pop-in, details[open] > :not(summary) { animation: none; }
+  .lift, .lift:hover { transition: none; transform: none; }
+  tbody tr { transition: none; }
+  .demo .d-el, .demo .d-4 .d-fill { transition: none; }
+  .demo .d-typing span, .demo.s5 .d-5 { animation: none; }
+}
+
+details > summary { list-style: none; cursor: pointer; }
+details > summary::-webkit-details-marker { display: none; }

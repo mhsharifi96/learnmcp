@@ -233,6 +233,10 @@ class QuizAttempt(models.Model):
     started_at = models.DateTimeField(auto_now_add=True)
     finished_at = models.DateTimeField(null=True, blank=True)
     score = models.FloatField(null=True, blank=True, help_text="Share of questions answered correctly (0–1).")
+    summary = models.TextField(
+        blank=True, help_text="Short report from the student's AI: what happened and where the student went wrong."
+    )
+    weak_concepts_json = models.JSONField(default=list, blank=True, help_text="Concepts the student should review.")
 
     class Meta:
         ordering = ["-started_at"]
@@ -273,23 +277,50 @@ class Answer(models.Model):
 
 class Event(models.Model):
     LESSON_STARTED = "lesson_started"
-    STUCK = "stuck"
+    PROBLEM = "problem"
     PROGRESS_VIEWED = "progress_viewed"
     QUIZ_STARTED = "quiz_started"
     QUIZ_FINISHED = "quiz_finished"
     TYPE_CHOICES = [
         (LESSON_STARTED, "Lesson started"),
-        (STUCK, "Stuck"),
+        (PROBLEM, "Problem reported"),
         (PROGRESS_VIEWED, "Progress viewed"),
         (QUIZ_STARTED, "Quiz started"),
         (QUIZ_FINISHED, "Quiz finished"),
     ]
 
+    # Problem categories (type == PROBLEM).
+    CAT_CONCEPT = "concept"
+    CAT_REPEATED = "repeated_mistake"
+    CAT_QUIZ = "quiz_mistakes"
+    CAT_PREREQUISITE = "prerequisite"
+    CAT_ENGAGEMENT = "engagement"
+    CAT_TECHNICAL = "technical"
+    CAT_OTHER = "other"
+    CATEGORY_CHOICES = [
+        (CAT_CONCEPT, "Doesn't understand a concept"),
+        (CAT_REPEATED, "Keeps making the same mistake"),
+        (CAT_QUIZ, "Mistakes in a quiz"),
+        (CAT_PREREQUISITE, "Missing background knowledge"),
+        (CAT_ENGAGEMENT, "Low motivation or focus"),
+        (CAT_TECHNICAL, "Technical problem"),
+        (CAT_OTHER, "Other"),
+    ]
+    LOW, MEDIUM, HIGH = "low", "medium", "high"
+    SEVERITY_CHOICES = [(LOW, "Low"), (MEDIUM, "Medium"), (HIGH, "High")]
+
     enrollment = models.ForeignKey(Enrollment, on_delete=models.CASCADE, related_name="events")
     type = models.CharField(max_length=30, choices=TYPE_CHOICES)
     lesson = models.ForeignKey(Lesson, on_delete=models.SET_NULL, null=True, blank=True, related_name="events")
+    attempt = models.ForeignKey(
+        QuizAttempt, on_delete=models.SET_NULL, null=True, blank=True, related_name="events"
+    )
     concept = models.CharField(max_length=200, blank=True)
     note = models.TextField(blank=True)
+    category = models.CharField(max_length=30, choices=CATEGORY_CHOICES, blank=True)
+    severity = models.CharField(max_length=10, choices=SEVERITY_CHOICES, blank=True)
+    resolved_at = models.DateTimeField(null=True, blank=True, help_text="Set when the instructor marks it handled.")
+    instructor_note = models.TextField(blank=True)
     client = models.CharField(max_length=30, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 

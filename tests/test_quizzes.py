@@ -154,3 +154,25 @@ def test_build_english_course(course_setup):
     assert len(lessons) == 13 and lessons[0].title.startswith("Placement")
     assert all(not lesson.content and lesson.brief for lesson in lessons)
     assert course.quizzes.count() == 13 and not course.quizzes.exclude(mode=Quiz.AI).exists()
+
+
+def test_finished_quiz_reports_mistakes_and_logs_problem(course_setup):
+    from learn.models import Event
+    from learn.services import enrollments, quizzes
+
+    course, _, _, quiz = course_setup
+    enr, _ = enrollments.join(course, name="Mia", email="mia@example.com")
+    start = quizzes.start(enr, quiz.id)
+    r = quizzes.grade_and_next(enr, start["attempt_id"], start["question"]["question_id"], "A")
+    assert r["result"] == "incorrect"
+    done = quizzes.grade_and_next(enr, start["attempt_id"], r["next_question"]["question_id"], "type()")
+    assert done["finished"]
+    mistakes = done["report"]["mistakes"]
+    assert [m["number"] for m in mistakes] == [1] and mistakes[0]["student_answer"] == "A"
+    problem = Event.objects.get(enrollment=enr, type=Event.PROBLEM)
+    assert problem.category == Event.CAT_QUIZ and problem.attempt_id == start["attempt_id"]
+    assert "questions 1" in problem.note
+
+    quizzes.submit_report(enr, start["attempt_id"], "Mixed up ints and floats.", ["number types"])
+    problem.refresh_from_db()
+    assert problem.concept == "number types"
