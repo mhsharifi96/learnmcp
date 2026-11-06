@@ -1,18 +1,18 @@
-"use client";
+import type { Metadata } from "next";
+import { og, requestLang, SEO } from "@/lib/server";
+import JoinCode from "./join-code-view";
 
-import { CodeForm } from "@/components/code-form";
-import { useT } from "@/components/lang";
-import { Card, PageTitle } from "@/components/ui";
+export async function generateMetadata(): Promise<Metadata> {
+  const lang = await requestLang();
+  const s = SEO[lang];
+  return {
+    title: s.joinTitle,
+    description: s.joinDescription,
+    alternates: { canonical: "/join/" },
+    openGraph: og(lang, { url: "/join/", title: s.joinTitle, description: s.joinDescription }),
+  };
+}
 
-export default function JoinCode() {
-  const t = useT();
-  return (
-    <div className="mx-auto max-w-lg">
-      <PageTitle>{t.join.codeTitle}</PageTitle>
-      <Card>
-        <p className="mb-3 text-quiet">{t.home.studentText}</p>
-        <CodeForm autoFocus />
-      </Card>
-    </div>
-  );
+export default function Page() {
+  return <JoinCode />;
 }

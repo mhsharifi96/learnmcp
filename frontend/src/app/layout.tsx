@@ -4,15 +4,26 @@ import { Vazirmatn } from "next/font/google";
 import { LangProvider } from "@/components/lang";
 import { SiteHeader } from "@/components/site-header";
 import { DEFAULT_LANG, isLang, LANG_COOKIE } from "@/lib/i18n";
+import { OG_LOCALE, requestLang, SEO, siteUrl } from "@/lib/server";
 import "./globals.css";
 
 // Vazirmatn (Vazir) for Persian and Latin text, body and headings alike.
 const body = Vazirmatn({ subsets: ["arabic", "latin"], variable: "--font-body", display: "swap" });
 
-export const metadata: Metadata = {
-  title: "learnmcp",
-  description: "Learn your instructor's lessons with the AI you already use.",
-};
+// Site-wide defaults; public pages add their own title, description and canonical URL.
+export async function generateMetadata(): Promise<Metadata> {
+  const lang = await requestLang();
+  const s = SEO[lang];
+  return {
+    metadataBase: new URL(siteUrl()),
+    applicationName: "learnmcp",
+    title: { default: s.siteTitle, template: "%s | learnmcp" },
+    description: s.siteDescription,
+    openGraph: { type: "website", siteName: "learnmcp", locale: OG_LOCALE[lang], title: s.siteTitle, description: s.siteDescription },
+    twitter: { card: "summary", title: s.siteTitle, description: s.siteDescription },
+    formatDetection: { telephone: false, email: false, address: false },
+  };
+}
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
   const stored = (await cookies()).get(LANG_COOKIE)?.value;

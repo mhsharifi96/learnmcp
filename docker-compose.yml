@@ -47,6 +47,12 @@ services:
     build: ./frontend
     image: learnmcp-frontend:${IMAGE_TAG:-latest}
     restart: unless-stopped
+    environment:
+      # SEO: canonical URLs, sitemap and Open Graph use the public URL; server-rendered class pages
+      # read public class data straight from Django inside the compose network.
+      PUBLIC_BASE_URL: ${PUBLIC_BASE_URL:-}
+      SITE_URL: ${SITE_URL:-}
+      INTERNAL_API_URL: ${INTERNAL_API_URL:-http://web:8000}
 
   # Routes /api, /admin, /s/ (MCP), OAuth and /static to Django and everything else to Next.js.
   gateway:

@@ -24,6 +24,14 @@ Each lesson has a type (`Lesson.kind`): general, grammar, vocabulary, Persian �
 
 `python manage.py add_language_lessons --join-code CODE [--dry-run]` adds translation, role-play, reading and writing lessons to each level of a course made by `build_english_course`, without deleting anything.
 
+### Sample classes
+
+`python manage.py seed_samples [--username demo] [--dry-run]` (in Docker: `./deploy.sh manage seed_samples`) creates six listed sample classes on the demo instructor: Python basics, high-school algebra, job-interview prep, personal finance, Persian → English business email writing and biology exam prep. Each has 3-5 lessons, an instructor-written quiz and an AI-written quiz. It is safe to run again: classes, lessons and quizzes are matched by title and existing ones are never changed. It is not run automatically on deploy.
+
+### SEO
+
+Public pages (`/`, `/classes/`, `/join/`, `/join/CODE/`) render on the server with per-page titles, descriptions, canonical URLs, Open Graph/Twitter tags and JSON-LD (`ItemList` for the class list, `Course` for each listed class, including its lesson titles). `/sitemap.xml` lists the listed classes and `/robots.txt` keeps private pages (`/teach/`, `/me/`, `/study/`, `/connect/`, `/r/`, …) out. Unlisted classes get `noindex`. The frontend container needs `PUBLIC_BASE_URL` (or `SITE_URL`) for absolute URLs and reaches Django at `INTERNAL_API_URL` (default `http://web:8000`; `web` is accepted by Django via `DJANGO_INTERNAL_HOSTS`).
+
 ## Architecture
 
 ```
