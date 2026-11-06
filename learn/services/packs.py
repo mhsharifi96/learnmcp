@@ -210,12 +210,22 @@ def _header(enrollment, t: dict) -> str:
     )
 
 
+def _paste_fallback(url: str) -> str:
+    """Copy box + plain link. The JSON never goes into the URL: long results break links."""
+    return (
+        "Print the JSON in ONE code block (a box with a copy button), nothing else inside it. "
+        f"Under the box give me this link, exactly as written, as a plain clickable link: {url} "
+        "Never put the JSON or anything else into the link. "
+        "Then tell me in one line: copy the box, open the link, paste it there and press Send."
+    )
+
+
 def _send_rules(url: str, t: dict, json_shape: str) -> str:
     return f"""SENDING THE RESULT (only once, at the very end)
 - Build the result as JSON in exactly this shape:
 {json_shape}
 - Show it to me inside the HTML page below, rendered as an artifact / canvas / HTML preview so I can click the button. Replace RESULT_JSON with the JSON (escape nothing else, change nothing else).
-- If you cannot display HTML: give me ONE clickable link that already carries the result, made exactly like {url}?d=<the JSON, URL-encoded> (the JSON must be in the link). Under it, also print the JSON in a code block and tell me: if the link doesn't send it, open {url} and paste the JSON there.
+- If you cannot display HTML, or I say the button doesn't work: {_paste_fallback(url)}
 - Send nothing before the end. Never invent my answers.
 
 ```html
@@ -242,7 +252,7 @@ def lesson_prompt(enrollment, lesson_id: int, base_url: str) -> str:
     plan = BRIEF_RULES if not lesson.content.strip() else ""
 
     ai_quizzes, manual = [], []
-    for quiz in lesson.quizzes.order_by("id"):
+    for quiz in lesson.quizzes.published().order_by("id"):
         if quiz.is_ai:
             ai_quizzes.append(quiz)
         else:
@@ -299,11 +309,10 @@ def lesson_prompt(enrollment, lesson_id: int, base_url: str) -> str:
         for q, qs in manual
     )
     fallback = (
-        f"If you cannot display HTML: "
+        "If you cannot display HTML, or I say the button doesn't work: "
         + (f"ask me the page's quiz questions in the chat one at a time without judging them ({manual_ids}) and put my answers "
-           "(option letters for multiple choice) in \"manual\". " if manual else "")
-        + f"Then give me ONE clickable link that carries the result, made exactly like {url}?d=<the JSON, URL-encoded>. "
-        f"Under it, also print the JSON in a code block and tell me: if the link doesn't send it, open {url} and paste the JSON there."
+           "(option letters for multiple choice) in \"manual\". Then: " if manual else "")
+        + _paste_fallback(url)
     )
     page = unit_form_html(lesson, manual, url, t) if manual else _send_box(url, t)
     return f"""{_header(target, t)}
@@ -326,7 +335,7 @@ RESULT JSON (exactly this shape):
 
 def quiz_prompt(enrollment, quiz_id: int, base_url: str) -> str:
     quiz = (
-        Quiz.objects.select_related("course", "lesson")
+        Quiz.objects.published().select_related("course", "lesson")
         .filter(pk=quiz_id, course__enrollments__student_id=enrollment.student_id)
         .first()
     )
@@ -374,7 +383,7 @@ INSTRUCTOR'S QUIZ PROMPT:
 TASK: show me the quiz "{quiz.title}" ({len(questions)} questions). My instructor's server grades it; you do not know the correct answers.
 1. Render the HTML page below EXACTLY as it is (as an artifact / canvas / HTML preview), with no changes, so I can click my answers and press the send button. Say only one short line before it.
 2. Do not answer the questions, hint, or say which option is right, even if I ask.
-3. If you cannot display HTML: ask me the questions below one at a time and collect my answers without judging them. At the end build this JSON: {{"answers": [<my answer to Q1, use the option letter for multiple choice>, <Q2>, ...], "app": "<your app name>"}}. Give me ONE clickable link that carries it, made exactly like {url}?d=<the JSON, URL-encoded>. Under it, also print the JSON in a code block and tell me: if the link doesn't send it, open {url} and paste the JSON there.
+3. If you cannot display HTML: ask me the questions below one at a time and collect my answers without judging them. At the end build this JSON: {{"answers": [<my answer to Q1, use the option letter for multiple choice>, <Q2>, ...], "app": "<your app name>"}}. {_paste_fallback(url)}
 4. After I send it, the result page shows my mistakes. If I paste them here, help me understand them.
 
 ```html
@@ -584,7 +593,7 @@ def _submit_unit(enrollment, lesson_id: int, data: dict, client: str) -> tuple[E
         event = _submit_lesson(enrollment, lesson.id, data, client)
     ai_data = data.get("quizzes") if isinstance(data.get("quizzes"), dict) else {}
     manual_data = data.get("manual") if isinstance(data.get("manual"), dict) else {}
-    lesson_quizzes = list(lesson.quizzes.filter(course=enrollment.course).order_by("id"))
+    lesson_quizzes = list(lesson.quizzes.published().filter(course=enrollment.course).order_by("id"))
     ai_quizzes = [q for q in lesson_quizzes if q.is_ai]
     attempts = []
     for quiz in lesson_quizzes:
