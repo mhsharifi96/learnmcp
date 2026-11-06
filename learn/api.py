@@ -336,11 +336,21 @@ def class_info(request, code: str):
         raise ApiError("No class with this code. Check it with your instructor.", 404)
     student = pages.account_student(request)
     already = bool(student and Enrollment.objects.filter(student=student, course=course).exists())
+    # Lesson titles (public, for listed classes only) so the join page shows what the class covers.
+    # Draft lessons stay hidden.
+    titles = course.lessons.published().order_by("order", "id").values_list("title", flat=True)
+    lessons = (
+        [{"order": n, "title": title} for n, title in enumerate(titles, start=1)]
+        if course.listed
+        else []
+    )
     return {
         "code": course.join_code,
         "title": course.title,
         "description": course.description,
         "instructor": course.instructor.display_name,
+        "listed": course.listed,
+        "lessons": lessons,
         "linked": student is not None,
         "already_joined": already,
         "student": _student_payload(student),

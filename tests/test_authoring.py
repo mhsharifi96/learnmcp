@@ -121,3 +121,12 @@ def test_api_flow_and_scoping(client, course_setup, other_instructor):
     assert r.status_code == 200 and r.json()["draft"] is False
     r = client.post(f"/api/teach/courses/{course.id}/publish", {}, content_type="application/json")
     assert r.json() == {"lessons": 0, "quizzes": 3}
+
+
+def test_public_class_hides_draft_lessons(client, course_setup):
+    course = course_setup[0]
+    authoring.import_json(course, json.dumps(IMPORT))
+    data = client.get(f"/api/classes/{course.join_code}").json()
+    assert [l["title"] for l in data["lessons"]] == ["Variables", "Loops"]
+    listed = next(c for c in client.get("/api/classes").json()["classes"] if c["id"] == course.id)
+    assert listed["lessons"] == 2

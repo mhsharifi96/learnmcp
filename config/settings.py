@@ -28,6 +28,8 @@ if not SECRET_KEY:
     SECRET_KEY = "dev-insecure-secret-key-change-me"
 
 ALLOWED_HOSTS = env_list("DJANGO_ALLOWED_HOSTS", "localhost,127.0.0.1,[::1]")
+# Hostnames used inside the compose network (the Next.js server fetches public class data from http://web:8000).
+ALLOWED_HOSTS += [h for h in env_list("DJANGO_INTERNAL_HOSTS", "web") if h not in ALLOWED_HOSTS]
 CSRF_TRUSTED_ORIGINS = env_list("DJANGO_CSRF_TRUSTED_ORIGINS", "")
 
 # Public base URL used when building student MCP URLs and invite links,

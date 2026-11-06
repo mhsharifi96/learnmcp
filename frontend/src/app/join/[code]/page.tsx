@@ -1,155 +1,74 @@
-"use client";
+import type { Metadata } from "next";
+import { cache } from "react";
+import { clip, jsonLd, og, publicApi, requestLang, SEO, siteUrl } from "@/lib/server";
+import Join, { type PublicClass } from "./join-view";
 
-import Link from "next/link";
-import { useParams, useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
-import { api, ApiError } from "@/lib/api";
-import { useT } from "@/components/lang";
-import { VerifyNotice } from "@/components/student-auth-form";
-import type { StudentAccount } from "@/lib/types";
-import { Alert, Button, ButtonLink, Card, PageTitle, Spinner, useErrorText } from "@/components/ui";
+type Params = Promise<{ code: string }>;
 
-type ClassInfo = {
-  code: string;
-  title: string;
-  description: string;
-  instructor: string;
-  linked: boolean;
-  already_joined: boolean;
-  student: StudentAccount | null;
-};
+const loadClass = cache(async (code: string) => {
+  const c = await publicApi<PublicClass>(`classes/${encodeURIComponent(code)}`);
+  if (!c) return null;
+  // Only the public fields: never pass visitor-specific data from a cookie-less server fetch.
+  return {
+    code: c.code,
+    title: c.title,
+    description: c.description,
+    instructor: c.instructor,
+    listed: c.listed !== false,
+    lessons: c.listed !== false && Array.isArray(c.lessons) ? c.lessons : [],
+  } satisfies PublicClass;
+});
 
-export default function Join() {
-  const t = useT();
-  const errorText = useErrorText();
-  const router = useRouter();
-  const { code } = useParams<{ code: string }>();
-  const [info, setInfo] = useState<ClassInfo | null>(null);
-  const [loadError, setLoadError] = useState("");
-  const [consent, setConsent] = useState(false);
-  const [errors, setErrors] = useState<Record<string, string[]>>({});
-  const [error, setError] = useState("");
-  const [busy, setBusy] = useState(false);
+export async function generateMetadata({ params }: { params: Params }): Promise<Metadata> {
+  const { code } = await params;
+  const lang = await requestLang();
+  const s = SEO[lang];
+  const c = await loadClass(code);
+  if (!c) return { title: s.notFound, robots: { index: false, follow: true } };
+  const path = `/join/${c.code}/`;
+  const description = clip(c.description || s.classBy(c.title, c.instructor));
+  return {
+    title: c.title,
+    description,
+    alternates: { canonical: path },
+    // Unlisted classes are only for people with the code: keep them out of search results.
+    robots: c.listed ? undefined : { index: false, follow: false },
+    authors: [{ name: c.instructor }],
+    openGraph: og(lang, { url: path, title: c.title, description }),
+    twitter: { title: c.title, description },
+  };
+}
 
-  useEffect(() => {
-    api<ClassInfo>(`classes/${encodeURIComponent(code)}`)
-      .then(setInfo)
-      .catch((e) => setLoadError(e instanceof ApiError && e.status === 404 ? t.join.notFound : errorText(e)));
-  }, [code]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  if (loadError)
-    return (
-      <div className="mx-auto max-w-lg">
-        <Alert>{loadError}</Alert>
-        <Link href="/join/">{t.join.codeTitle}</Link>
-      </div>
-    );
-  if (!info) return <Spinner />;
-
-  async function submit(e: React.FormEvent) {
-    e.preventDefault();
-    setBusy(true);
-    setError("");
-    setErrors({});
-    try {
-      const r = await api<{ enrollment_id: number }>(`classes/${info!.code}/join`, { method: "POST", body: { consent } });
-      router.push(`/connect/${r.enrollment_id}/`);
-    } catch (err) {
-      setError(errorText(err));
-      if (err instanceof ApiError) setErrors(err.errors);
-      setBusy(false);
-    }
-  }
-
+export default async function Page({ params }: { params: Params }) {
+  const { code } = await params;
+  const lang = await requestLang();
+  const c = await loadClass(code);
+  const url = siteUrl();
+  const ld = c?.listed && {
+    "@context": "https://schema.org",
+    "@type": "Course",
+    "@id": `${url}/join/${c.code}/#course`,
+    name: c.title,
+    description: clip(c.description || SEO[lang].classBy(c.title, c.instructor), 500),
+    url: `${url}/join/${c.code}/`,
+    courseCode: c.code,
+    inLanguage: lang,
+    isAccessibleForFree: true,
+    provider: { "@type": "Organization", name: "learnmcp", sameAs: `${url}/` },
+    author: { "@type": "Person", name: c.instructor },
+    hasCourseInstance: {
+      "@type": "CourseInstance",
+      courseMode: "Online",
+      instructor: { "@type": "Person", name: c.instructor },
+    },
+    ...(c.lessons.length
+      ? { syllabusSections: c.lessons.map((l) => ({ "@type": "Syllabus", name: l.title, position: l.order })) }
+      : {}),
+  };
   return (
-    <div className="mx-auto max-w-3xl space-y-5">
-      <div>
-        <p className="text-quiet">
-          {t.join.by} {info.instructor}
-        </p>
-        <PageTitle>{info.title}</PageTitle>
-        {info.description && <p className="-mt-3 max-w-prose whitespace-pre-line">{info.description}</p>}
-      </div>
-
-      {info.already_joined ? (
-        <Card>
-          <p className="mb-3">{t.join.already}</p>
-          <Link href="/me/">{t.join.goMe}</Link>
-        </Card>
-      ) : (
-        <>
-          <Card>
-            <h2 className="mb-3 text-xl font-bold text-lapis">{t.join.sharedTitle}</h2>
-            <div className="grid gap-5 sm:grid-cols-2">
-              <div>
-                <h3 className="font-semibold text-ok">{t.join.recorded}</h3>
-                <ul className="mt-1 list-disc space-y-1 ps-5">
-                  {t.join.recordedItems.map((x) => (
-                    <li key={x}>{x}</li>
-                  ))}
-                </ul>
-              </div>
-              <div>
-                <h3 className="font-semibold text-danger">{t.join.notRecorded}</h3>
-                <ul className="mt-1 list-disc space-y-1 ps-5">
-                  {t.join.notRecordedItems.map((x) => (
-                    <li key={x}>{x}</li>
-                  ))}
-                </ul>
-              </div>
-            </div>
-            <p className="mt-4 text-sm text-quiet">{t.join.dataNote}</p>
-          </Card>
-
-          <Card>
-            <h2 className="mb-3 text-xl font-bold text-lapis">{t.join.details}</h2>
-            {!info.student ? (
-              <>
-                <p className="mb-4">{t.student.needAccount}</p>
-                <div className="flex flex-wrap gap-3">
-                  <ButtonLink href={`/student/signup/?next=${encodeURIComponent(`/join/${info.code}/`)}`}>{t.student.signup}</ButtonLink>
-                  <ButtonLink href={`/student/login/?next=${encodeURIComponent(`/join/${info.code}/`)}`} variant="secondary">
-                    {t.student.login}
-                  </ButtonLink>
-                </div>
-              </>
-            ) : !info.student.email_verified ? (
-              <VerifyNotice email={info.student.email} />
-            ) : (
-              <>
-                <Alert>{error}</Alert>
-                <dl className="mb-4 grid gap-1 text-sm sm:grid-cols-2">
-                  <div>
-                    <dt className="text-quiet">{t.join.name}</dt>
-                    <dd className="font-semibold">{info.student.name}</dd>
-                  </div>
-                  <div>
-                    <dt className="text-quiet">{t.join.email}</dt>
-                    <dd className="font-semibold" dir="ltr">{info.student.email}</dd>
-                  </div>
-                </dl>
-                <form onSubmit={submit} noValidate>
-                  <div className="mb-3">
-                    <label className="flex items-start gap-3">
-                      <input
-                        type="checkbox"
-                        className="mt-1.5 h-4 w-4 accent-[var(--turquoise)]"
-                        checked={consent}
-                        onChange={(e) => setConsent(e.target.checked)}
-                      />
-                      <span>{t.join.consent}</span>
-                    </label>
-                    {errors.consent && <p className="ms-7 text-sm text-danger">{errors.consent.join(" ")}</p>}
-                  </div>
-                  <Button type="submit" disabled={busy || !consent} className="mt-2">
-                    {busy ? t.common.loading : t.join.submit}
-                  </Button>
-                </form>
-              </>
-            )}
-          </Card>
-        </>
-      )}
-    </div>
+    <>
+      {ld && <script type="application/ld+json" dangerouslySetInnerHTML={jsonLd(ld)} />}
+      <Join initial={c} />
+    </>
   );
 }
