@@ -6,16 +6,17 @@ import { useState } from "react";
 import { api, ApiError } from "@/lib/api";
 import type { QuizSummary } from "@/lib/types";
 import { useT } from "@/components/lang";
-import { Alert, Button, Card, Field, Input, useErrorText } from "@/components/ui";
+import { Alert, Button, Card, Chip, Field, Input, useErrorText } from "@/components/ui";
 import { ModeBadge, ModePicker, PromptFields } from "@/components/quiz-fields";
 import { inputClass } from "@/components/ui";
+import { AiBuilder, DraftBar } from "@/components/ai-builder";
 import { useCourse } from "../course-context";
 
 export default function Quizzes() {
   const t = useT();
   const router = useRouter();
   const errorText = useErrorText();
-  const { course } = useCourse();
+  const { course, reload } = useCourse();
   const Q = t.teach.quiz;
   const [adding, setAdding] = useState(false);
   const [d, setD] = useState({ title: "", lesson_id: "" as string, mode: "ai" as "ai" | "manual", prompt: "", ai_question_count: 8 });
@@ -24,6 +25,12 @@ export default function Quizzes() {
 
   return (
     <div className="space-y-4">
+      <AiBuilder courseId={course.id} target="quizzes" onImported={reload} />
+      <DraftBar
+        courseId={course.id}
+        count={course.lessons.filter((l) => l.draft).length + course.quizzes.filter((q) => q.draft).length}
+        onDone={reload}
+      />
       {course.quizzes.length === 0 && !adding && <p className="text-quiet">{Q.empty}</p>}
       <ul className="space-y-3">
         {course.quizzes.map((q) => (
@@ -34,8 +41,9 @@ export default function Quizzes() {
             >
               <ModeBadge mode={q.mode} />
               <span className="min-w-0 flex-1">
-                <span className="block font-semibold" dir="auto">
+                <span className="flex flex-wrap items-center gap-2 font-semibold" dir="auto">
                   {q.title}
+                  {q.draft && <Chip tone="warn">{t.teach.draft}</Chip>}
                 </span>
                 <span className="block text-sm text-quiet" dir="auto">
                   {q.lesson ?? Q.noLesson} · {q.question_count} {Q.questions}

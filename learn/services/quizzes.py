@@ -162,7 +162,7 @@ def recompute_score(attempt: QuizAttempt) -> None:
 
 def start(enrollment, quiz_id: int, *, client: str = "") -> dict:
     quiz = (
-        Quiz.objects.select_related("course")
+        Quiz.objects.published().select_related("course")
         .filter(pk=quiz_id, course__enrollments__student_id=enrollment.student_id)
         .first()
     )

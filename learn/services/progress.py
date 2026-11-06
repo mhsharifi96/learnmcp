@@ -4,7 +4,7 @@ from collections import Counter
 from datetime import timedelta
 
 from django.conf import settings
-from django.db.models import Avg, Count, F, Max, Q
+from django.db.models import Avg, Count, F, Max, Prefetch, Q
 from django.utils import timezone
 
 from learn.models import Answer, Enrollment, Event, Lesson, Question, Quiz, QuizAttempt
@@ -19,7 +19,11 @@ from learn.services.courses import (
 
 
 def _next_step(course, statuses, finished_quiz_ids) -> str:
-    lessons = list(Lesson.objects.filter(course=course).prefetch_related("quizzes").order_by("order", "id"))
+    lessons = list(
+        Lesson.objects.published().filter(course=course)
+        .prefetch_related(Prefetch("quizzes", queryset=Quiz.objects.published()))
+        .order_by("order", "id")
+    )
     for lesson in lessons:
         status = statuses.get(lesson.id, LESSON_NOT_STARTED)
         if status == LESSON_STARTED:
@@ -28,7 +32,7 @@ def _next_step(course, statuses, finished_quiz_ids) -> str:
                 return f'Take the quiz "{pending[0].title}" (quiz_id={pending[0].id}) for lesson "{lesson.title}".'
         if status == LESSON_NOT_STARTED:
             return f'Start lesson {lesson.order}: "{lesson.title}" (lesson_id={lesson.id}).'
-    for quiz in Quiz.objects.filter(course=course, lesson__isnull=True):
+    for quiz in Quiz.objects.published().filter(course=course, lesson__isnull=True):
         if quiz.id not in finished_quiz_ids:
             return f'Take the class quiz "{quiz.title}" (quiz_id={quiz.id}).'
     return "Everything in this class is done. Review the concepts listed in open_problems, or retake a quiz."
@@ -44,7 +48,7 @@ def student_progress(enrollment, *, client: str = "") -> dict:
     courses = []
     for enr in enrollments:
         course = enr.course
-        lesson_ids = list(Lesson.objects.filter(course=course).values_list("id", flat=True))
+        lesson_ids = list(Lesson.objects.published().filter(course=course).values_list("id", flat=True))
         course_attempts = finished.filter(enrollment=enr)
         avg = course_attempts.aggregate(a=Avg("score"))["a"]
         problems = Counter(

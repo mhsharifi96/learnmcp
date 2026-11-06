@@ -49,7 +49,7 @@ def enrollment_for_course(enrollment, course_id: int):
 
 def get_accessible_lesson(enrollment, lesson_id: int) -> Lesson:
     lesson = (
-        Lesson.objects.select_related("course")
+        Lesson.objects.published().select_related("course")
         .filter(pk=lesson_id, course__enrollments__student_id=enrollment.student_id)
         .first()
     )
@@ -70,7 +70,9 @@ def lesson_statuses(enrollment_ids) -> dict[int, str]:
         .values_list("quiz_id", flat=True)
     )
     statuses = {}
-    lessons = Lesson.objects.filter(course__enrollments__id__in=enrollment_ids).prefetch_related("quizzes")
+    lessons = Lesson.objects.published().filter(course__enrollments__id__in=enrollment_ids).prefetch_related(
+        Prefetch("quizzes", queryset=Quiz.objects.published())
+    )
     for lesson in lessons:
         quiz_ids = {q.id for q in lesson.quizzes.all()}
         if quiz_ids and quiz_ids <= finished_quiz_ids:
@@ -107,12 +109,12 @@ def list_courses(enrollment) -> dict:
         finished_scores[quiz_id] = max(finished_scores.get(quiz_id, 0.0), score or 0.0)
 
 
-    quizzes_qs = Quiz.objects.annotate(num_questions=Count("questions", filter=Q(questions__attempt__isnull=True)))
+    quizzes_qs = Quiz.objects.published().annotate(num_questions=Count("questions", filter=Q(questions__attempt__isnull=True)))
     courses = []
     for enr in enrollments:
         course = enr.course
         lessons = (
-            Lesson.objects.filter(course=course)
+            Lesson.objects.published().filter(course=course)
             .prefetch_related(Prefetch("quizzes", queryset=quizzes_qs))
             .order_by("order", "id")
         )
@@ -148,7 +150,7 @@ def get_lesson(enrollment, lesson_id: int, *, client: str = "") -> dict:
     events.record(target, Event.LESSON_STARTED, lesson=lesson, client=client)
 
     next_lesson = (
-        Lesson.objects.filter(course_id=lesson.course_id, order__gt=lesson.order).order_by("order", "id").first()
+        Lesson.objects.published().filter(course_id=lesson.course_id, order__gt=lesson.order).order_by("order", "id").first()
     )
     return {
         "lesson_id": lesson.id,
@@ -160,7 +162,7 @@ def get_lesson(enrollment, lesson_id: int, *, client: str = "") -> dict:
         "content": lesson.content or None,
         "instructor_teaching_notes": lesson.teaching_notes,
         "quizzes": [
-            {"quiz_id": q.id, "title": q.title, "ai_generated": q.is_ai} for q in lesson.quizzes.all()
+            {"quiz_id": q.id, "title": q.title, "ai_generated": q.is_ai} for q in lesson.quizzes.published()
         ],
         "next_lesson": (
             {"lesson_id": next_lesson.id, "title": next_lesson.title} if next_lesson else None

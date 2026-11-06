@@ -57,7 +57,23 @@ class Course(models.Model):
         super().save(*args, **kwargs)
 
 
+class LessonQuerySet(models.QuerySet):
+    def published(self):
+        return self.filter(draft=False)
+
+
+class QuizQuerySet(models.QuerySet):
+    def published(self):
+        """Visible to students: not a draft and not attached to a draft lesson."""
+        return self.filter(draft=False).filter(models.Q(lesson__isnull=True) | models.Q(lesson__draft=False))
+
+
+DRAFT_HELP = "Drafts are hidden from students until you publish them."
+
+
 class Lesson(models.Model):
+    objects = LessonQuerySet.as_manager()
+
     course = models.ForeignKey(Course, on_delete=models.CASCADE, related_name="lessons")
     order = models.PositiveIntegerField(default=1)
     title = models.CharField(max_length=200)
@@ -86,6 +102,7 @@ class Lesson(models.Model):
         blank=True,
         help_text="Instructions for the AI tutor (tone, examples to use, common mistakes to watch for).",
     )
+    draft = models.BooleanField(default=False, help_text=DRAFT_HELP)
 
     class Meta:
         ordering = ["course", "order", "id"]
@@ -104,6 +121,8 @@ class Lesson(models.Model):
 
 
 class Quiz(models.Model):
+    objects = QuizQuerySet.as_manager()
+
     MANUAL = "manual"
     AI = "ai"
     MODE_CHOICES = [
@@ -127,6 +146,7 @@ class Quiz(models.Model):
     ai_question_count = models.PositiveSmallIntegerField(
         "number of questions", default=5, help_text="AI mode only. How many questions the AI asks."
     )
+    draft = models.BooleanField(default=False, help_text=DRAFT_HELP)
 
     class Meta:
         ordering = ["course", "lesson__order", "id"]

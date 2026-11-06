@@ -2,7 +2,7 @@ export type User = { username: string; display_name: string; is_superuser: boole
 export type StudentAccount = { name: string; email: string; email_verified: boolean; email_reminders: boolean; lang: "fa" | "en" };
 export type LessonKind = "general" | "grammar" | "vocabulary" | "translation" | "speaking" | "conversation" | "reading" | "writing" | "pronunciation";
 export const LESSON_KINDS: LessonKind[] = ["general", "grammar", "vocabulary", "translation", "speaking", "conversation", "reading", "writing", "pronunciation"];
-export type Lesson = { id: number; order: number; title: string; kind: LessonKind; brief: string; objectives: string; content: string; teaching_notes: string };
+export type Lesson = { id: number; order: number; title: string; kind: LessonKind; brief: string; objectives: string; content: string; teaching_notes: string; draft?: boolean };
 export type QuizSummary = {
   id: number;
   title: string;
@@ -12,6 +12,7 @@ export type QuizSummary = {
   prompt: string;
   ai_question_count: number;
   question_count: number;
+  draft?: boolean;
 };
 export type Question = {
   id: number;

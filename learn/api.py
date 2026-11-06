@@ -16,7 +16,7 @@ from django.contrib.auth.password_validation import validate_password
 from django.core.validators import validate_email
 from django.core.exceptions import ValidationError
 from django.db import transaction
-from django.db.models import Count
+from django.db.models import Count, Q
 from django.http import JsonResponse
 from django.utils import timezone
 from django.views.decorators.csrf import ensure_csrf_cookie
@@ -37,7 +37,7 @@ from learn.models import (
     Student,
     ToolCall,
 )
-from learn.services import ServiceError, accounts, courses, enrollments, grading, history, packs, progress, quizzes, tokens
+from learn.services import ServiceError, accounts, authoring, courses, enrollments, grading, history, packs, progress, quizzes, tokens
 
 
 class ApiError(Exception):
@@ -305,7 +305,10 @@ def catalog(request):
     qs = (
         Course.objects.filter(listed=True)
         .select_related("instructor")
-        .annotate(_students=Count("enrollments", distinct=True), _lessons=Count("lessons", distinct=True))
+        .annotate(
+            _students=Count("enrollments", distinct=True),
+            _lessons=Count("lessons", filter=Q(lessons__draft=False), distinct=True),
+        )
         .order_by("instructor__display_name", "title")
     )
     return {
@@ -622,6 +625,7 @@ def _lesson_payload(lesson: Lesson) -> dict:
         "objectives": lesson.objectives,
         "content": lesson.content,
         "teaching_notes": lesson.teaching_notes,
+        "draft": lesson.draft,
     }
 
 
@@ -649,6 +653,7 @@ def _quiz_payload(quiz: Quiz, with_questions: bool = False) -> dict:
         "prompt": quiz.prompt,
         "ai_question_count": quiz.ai_question_count,
         "question_count": quiz.ai_question_count if quiz.is_ai else quiz.manual_questions().count(),
+        "draft": quiz.draft,
     }
     if with_questions:
         data["questions"] = [_question_payload(q) for q in quiz.manual_questions().order_by("order", "id")]
@@ -760,7 +765,7 @@ def teach_dashboard(request, course_id: int):
     }
 
 
-LESSON_FIELDS = ("order", "title", "kind", "brief", "objectives", "content", "teaching_notes")
+LESSON_FIELDS = ("order", "title", "kind", "brief", "objectives", "content", "teaching_notes", "draft")
 
 
 @api(methods=("POST",), teach=True)
@@ -783,7 +788,7 @@ def teach_lesson(request, lesson_id: int):
     )
 
 
-QUIZ_FIELDS = ("title", "mode", "prompt", "ai_question_count")
+QUIZ_FIELDS = ("title", "mode", "prompt", "ai_question_count", "draft")
 
 
 def _set_quiz_lesson(request, quiz: Quiz, data: dict) -> None:
@@ -824,6 +829,27 @@ def teach_quiz(request, quiz_id: int):
         {"id": lesson.id, "title": lesson.title} for lesson in quiz.course.lessons.order_by("order", "id")
     ]
     return payload
+
+
+@api(methods=("POST",), teach=True)
+def teach_ai_prompt(request, course_id: int):
+    """Turn the instructor's goal into a prompt for their own AI."""
+    course = _course(request, course_id)
+    data = _body(request)
+    return {"prompt": authoring.build_prompt(course, str(data.get("goal") or ""), str(data.get("target") or ""))}
+
+
+@api(methods=("POST",), teach=True)
+def teach_import(request, course_id: int):
+    """Create lessons and quizzes from the JSON the instructor's AI made. Everything starts as a draft."""
+    course = _course(request, course_id)
+    return authoring.import_json(course, str(_body(request).get("json") or ""))
+
+
+@api(methods=("POST",), teach=True)
+def teach_publish(request, course_id: int):
+    """Publish every draft lesson and quiz of the class."""
+    return authoring.publish_all(_course(request, course_id))
 
 
 def _question_from(data: dict, q: Question) -> Question:

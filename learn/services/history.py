@@ -5,7 +5,9 @@ lessons studied (repeat opens on one day collapsed), lesson feedback, finished q
 their score, and problems the AI reported. Bookkeeping events are left out.
 """
 
-from learn.models import Answer, Event, Lesson, QuizAttempt
+from django.db.models import Prefetch
+
+from learn.models import Answer, Event, Lesson, Quiz, QuizAttempt
 from learn.services.courses import LESSON_NOT_STARTED, LESSON_QUIZ_DONE, LESSON_STARTED, lesson_statuses
 
 APP_NAMES = {
@@ -131,7 +133,12 @@ def progress(enrollment) -> dict:
     ):
         best[quiz_id] = max(best.get(quiz_id, 0), round((score or 0) * 100))
     lessons = []
-    for lesson in Lesson.objects.filter(course=enrollment.course).prefetch_related("quizzes").order_by("order", "id"):
+    published = (
+        Lesson.objects.published().filter(course=enrollment.course)
+        .prefetch_related(Prefetch("quizzes", queryset=Quiz.objects.published()))
+        .order_by("order", "id")
+    )
+    for lesson in published:
         quiz_scores = [best[q.id] for q in lesson.quizzes.all() if q.id in best]
         lessons.append(
             {

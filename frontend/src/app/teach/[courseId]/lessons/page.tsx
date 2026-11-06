@@ -5,6 +5,7 @@ import { api, ApiError } from "@/lib/api";
 import { LESSON_KINDS, type Lesson, type LessonKind } from "@/lib/types";
 import { useT } from "@/components/lang";
 import { Alert, Button, Card, Chip, Field, Input, Textarea, useErrorText } from "@/components/ui";
+import { AiBuilder, DraftBar } from "@/components/ai-builder";
 import { useCourse } from "../course-context";
 
 type Draft = Omit<Lesson, "id">;
@@ -126,16 +127,23 @@ export default function Lessons() {
   const [editing, setEditing] = useState<number | "new" | null>(null);
   const L = t.teach.lesson;
   const nextOrder = (course.lessons.at(-1)?.order ?? 0) + 1;
+  const drafts = course.lessons.filter((l) => l.draft).length + course.quizzes.filter((q) => q.draft).length;
+  const setDraft = async (id: number, draft: boolean) => {
+    await api(`teach/lessons/${id}`, { method: "PATCH", body: { draft } });
+    await reload();
+  };
 
   return (
     <div className="space-y-4">
+      <AiBuilder courseId={course.id} target="lessons" onImported={reload} />
+      <DraftBar courseId={course.id} count={drafts} onDone={reload} />
       {course.lessons.length === 0 && editing !== "new" && <p className="text-quiet">{L.empty}</p>}
       <ol className="space-y-3">
         {course.lessons.map((l) => {
           const quizzes = course.quizzes.filter((q) => q.lesson_id === l.id);
           return (
             <li key={l.id}>
-              <Card className="!p-4 sm:!p-5">
+              <Card className={`!p-4 sm:!p-5 ${l.draft ? "border-dashed border-saffron/60" : ""}`}>
                 {editing === l.id ? (
                   <LessonForm
                     initial={l}
@@ -160,6 +168,7 @@ export default function Lessons() {
                       <h3 className="flex flex-wrap items-center gap-2 font-semibold text-ink">
                         <span dir="auto">{l.title}</span>
                         {l.kind !== "general" && <Chip tone="info">{t.kinds[l.kind]?.label}</Chip>}
+                        {l.draft && <Chip tone="warn">{t.teach.draft}</Chip>}
                       </h3>
                       <p className="line-clamp-2 text-sm text-quiet" dir="auto">
                         {l.brief || l.content}
@@ -169,9 +178,16 @@ export default function Lessons() {
                         {quizzes.length > 0 && ` · ${quizzes.map((q) => q.title).join("، ")}`}
                       </p>
                     </div>
-                    <Button variant="secondary" className="shrink-0 px-3 py-1 text-sm" onClick={() => setEditing(l.id)}>
-                      {t.common.edit}
-                    </Button>
+                    <div className="flex shrink-0 flex-col gap-2">
+                      <Button variant="secondary" className="px-3 py-1 text-sm" onClick={() => setEditing(l.id)}>
+                        {t.common.edit}
+                      </Button>
+                      {l.draft && (
+                        <Button className="px-3 py-1 text-sm" onClick={() => setDraft(l.id, false)}>
+                          {t.teach.publish}
+                        </Button>
+                      )}
+                    </div>
                   </div>
                 )}
               </Card>

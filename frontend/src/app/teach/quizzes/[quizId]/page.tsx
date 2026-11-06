@@ -183,6 +183,28 @@ export default function QuizEditor() {
         {t.common.back}
       </Link>
       <PageTitle>{quiz.title}</PageTitle>
+      {quiz.draft !== undefined && (
+        <div
+          className={`flex flex-wrap items-center gap-3 rounded-xl border p-3 ${
+            quiz.draft ? "border-saffron/40 bg-saffron/10" : "border-line bg-surface"
+          }`}
+        >
+          <span className="flex-1 text-sm text-ink">{quiz.draft ? `${t.teach.draft} · ${t.teach.draftsLead}` : ""}</span>
+          <Button
+            variant={quiz.draft ? "primary" : "ghost"}
+            className="px-3 py-1 text-sm"
+            onClick={async () => {
+              try {
+                setQuiz(await api<QuizDetail>(`teach/quizzes/${quizId}`, { method: "PATCH", body: { draft: !quiz.draft } }));
+              } catch (err) {
+                setError(errorText(err));
+              }
+            }}
+          >
+            {quiz.draft ? t.teach.publish : t.teach.unpublish}
+          </Button>
+        </div>
+      )}
       <Card>
         <Alert>{error}</Alert>
         {saved && <Alert kind="ok">{t.common.saved}</Alert>}

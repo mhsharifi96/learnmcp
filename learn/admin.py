@@ -213,8 +213,8 @@ class CourseAdmin(InstructorScopedMixin, admin.ModelAdmin):
 
 @admin.register(Lesson)
 class LessonAdmin(InstructorScopedMixin, admin.ModelAdmin):
-    list_display = ("title", "course", "kind", "order")
-    fields = ("course", "order", "title", "kind", "brief", "objectives", "content", "teaching_notes")
+    list_display = ("title", "course", "kind", "order", "draft")
+    fields = ("course", "order", "title", "kind", "draft", "brief", "objectives", "content", "teaching_notes")
     list_filter = (("course", admin.RelatedOnlyFieldListFilter),)
     search_fields = ("title", "content")
     ordering = ("course", "order")
@@ -304,11 +304,11 @@ class QuestionInline(admin.TabularInline):
 
 @admin.register(Quiz)
 class QuizAdmin(InstructorScopedMixin, admin.ModelAdmin):
-    list_display = ("title", "course", "lesson", "question_count")
+    list_display = ("title", "course", "lesson", "question_count", "draft")
     list_filter = (("course", admin.RelatedOnlyFieldListFilter),)
     search_fields = ("title",)
     inlines = [QuestionInline]
-    fields = ("course", "lesson", "title", "mode", "prompt", "ai_question_count")
+    fields = ("course", "lesson", "title", "mode", "draft", "prompt", "ai_question_count")
     radio_fields = {"mode": admin.VERTICAL}
     formfield_overrides = {models.TextField: {"widget": forms.Textarea(attrs={"rows": 4, "cols": 90})}}
 
