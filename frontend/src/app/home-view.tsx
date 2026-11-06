@@ -86,6 +86,21 @@ export default function Home() {
       </section>
 
       <section>
+        <h2 className="font-display text-2xl text-lapis">{t.home.appsTitle}</h2>
+        <p className="mb-4 mt-1 text-quiet">{t.home.appsLead}</p>
+        <ul className="stagger grid gap-4 sm:grid-cols-2">
+          {t.home.apps.map(([name, text]) => (
+            <li key={name} className="rounded-xl border border-line bg-surface p-4">
+              <h3 className="font-semibold text-ink" dir="auto">
+                {name}
+              </h3>
+              <p className="mt-1 text-quiet">{text}</p>
+            </li>
+          ))}
+        </ul>
+      </section>
+
+      <section>
         <h2 className="mb-4 font-display text-2xl text-lapis">{t.home.faqTitle}</h2>
         <div className="space-y-2">
           {t.home.faq.map(([q, a]) => (

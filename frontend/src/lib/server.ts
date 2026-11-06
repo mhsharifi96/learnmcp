@@ -47,29 +47,37 @@ export function og(lang: Lang, page: { url: string; title: string; description: 
 
 export const SEO: Record<
   Lang,
-  { siteTitle: string; siteDescription: string; classesTitle: string; classesDescription: string; joinTitle: string; joinDescription: string; notFound: string; classBy: (title: string, instructor: string) => string }
+  { siteTitle: string; siteDescription: string; keywords: string[]; classesTitle: string; classesDescription: string; joinTitle: string; joinDescription: string; notFound: string; classBy: (title: string, instructor: string) => string }
 > = {
   fa: {
+    keywords: [
+      "آموزش با هوش مصنوعی", "معلم خصوصی هوش مصنوعی", "یادگیری با ChatGPT", "آموزش با چت جی پی تی", "Gemini", "جمینای",
+      "Claude", "کلاد", "DeepSeek", "دیپ سیک", "کلاس آنلاین", "آزمون آنلاین", "آموزش زبان انگلیسی", "آیلتس",
+    ],
     siteTitle: "learnmcp — معلم خصوصی هوش مصنوعی برای کلاس شما",
     siteDescription:
-      "مدرس درس‌ها را می‌گذارد و شما با ChatGPT، Gemini یا Claude (حتی رایگان) گفتگو می‌کنید و یاد می‌گیرید. مدرس می‌بیند کجا مشکل داشتید، نه گفتگوهایتان را.",
+      "مدرس درس‌ها را می‌گذارد و شما با ChatGPT، Gemini، Claude یا DeepSeek (حتی رایگان) گفتگو می‌کنید و یاد می‌گیرید. مدرس می‌بیند کجا مشکل داشتید، نه گفتگوهایتان را.",
     classesTitle: "همهٔ کلاس‌ها",
     classesDescription:
       "فهرست کلاس‌های آنلاین learnmcp: برنامه‌نویسی، ریاضی، زبان انگلیسی، آمادگی کنکور و مصاحبه و بیشتر. با هوش مصنوعی خودتان درس بخوانید و آزمون بدهید.",
     joinTitle: "ورود به کلاس",
-    joinDescription: "کد کلاسی را که مدرس به شما داده وارد کنید و با Claude یا ChatGPT درس بخوانید.",
+    joinDescription: "کد کلاسی را که مدرس به شما داده وارد کنید و با ChatGPT، Gemini، Claude یا DeepSeek درس بخوانید.",
     notFound: "کلاس پیدا نشد",
     classBy: (title, instructor) => `کلاس «${title}» با ${instructor} در learnmcp. درس‌ها و آزمون‌ها را با هوش مصنوعی خودتان بخوانید.`,
   },
   en: {
+    keywords: [
+      "AI tutor", "learn with ChatGPT", "Gemini", "Claude", "DeepSeek", "online class", "AI quiz",
+      "learn English with AI", "IELTS speaking practice", "teacher dashboard",
+    ],
     siteTitle: "learnmcp — A private AI tutor for your class",
     siteDescription:
-      "Your teacher puts the lessons here; you learn them by chatting with ChatGPT, Gemini or Claude, even the free versions. Your teacher sees where you got stuck, never your chats.",
+      "Your teacher puts the lessons here; you learn them by chatting with ChatGPT, Gemini, Claude or DeepSeek, even the free versions. Your teacher sees where you got stuck, never your chats.",
     classesTitle: "All classes",
     classesDescription:
       "Online classes on learnmcp: programming, math, English, exam and interview prep and more. Study lessons and take quizzes with the AI you already use.",
     joinTitle: "Join a class",
-    joinDescription: "Enter the class code your instructor gave you and study with Claude or ChatGPT.",
+    joinDescription: "Enter the class code your instructor gave you and study with ChatGPT, Gemini, Claude or DeepSeek.",
     notFound: "Class not found",
     classBy: (title, instructor) => `“${title}” by ${instructor} on learnmcp. Study the lessons and quizzes with your own AI.`,
   },

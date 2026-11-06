@@ -13,7 +13,7 @@ const en = {
   },
   home: {
     title: "A private AI tutor for your class",
-    lead: "Your teacher puts the lessons here. You learn them by chatting with ChatGPT, Gemini or Claude, even the free versions. Your teacher sees where you got stuck, so they can help.",
+    lead: "Your teacher puts the lessons here. You learn them by chatting with ChatGPT, Gemini, Claude or DeepSeek, even the free versions. Your teacher sees where you got stuck, so they can help.",
     whatTitle: "What is this site?",
     what: [
       ["For students", "Instead of only reading, you learn by talking. The AI explains the lesson step by step, asks you questions and gives you a quiz."],
@@ -50,9 +50,18 @@ const en = {
       ["Add lessons", "Write a few lines per lesson, or describe your goal and let your own AI build all the lessons and quizzes."],
       ["Follow your students", "See who studied, the scores, and which topics each student finds hard."],
     ],
+    appsTitle: "Works with the AI you already have",
+    appsLead: "No new app to learn. Use the AI chat you like, on your phone or computer.",
+    apps: [
+      ["ChatGPT", "Copy the lesson into ChatGPT (free or Plus). On paid plans you can also connect it once and just ask for your lessons."],
+      ["Google Gemini", "Paste the lesson into Gemini, including the free app on Android. Answer by voice with the microphone."],
+      ["Claude", "Paste the lesson into Claude, or add your personal link as a connector so Claude sees your lessons directly."],
+      ["DeepSeek", "Paste the lesson into DeepSeek chat. It teaches, quizzes you and makes the result to send to your teacher."],
+    ],
     faqTitle: "Common questions",
     faq: [
-      ["Do I need to pay for an AI?", "No. The free versions of ChatGPT, Gemini and Claude work."],
+      ["Which AI can I use?", "ChatGPT, Google Gemini, Claude, DeepSeek or any other AI chat that can read a long message."],
+      ["Do I need to pay for an AI?", "No. The free versions of ChatGPT, Gemini, Claude and DeepSeek work."],
       ["Can my teacher read my chats?", "No. Only the result is sent: what you learned, your quiz answers and what was hard."],
       ["Do I need to install anything?", "No. Everything works in the browser or in the AI app on your phone."],
     ],
@@ -261,7 +270,7 @@ const fa: Dict = {
   },
   home: {
     title: "معلم خصوصی هوش مصنوعی برای کلاس شما",
-    lead: "مدرس درس‌ها را اینجا می‌گذارد. شما با ChatGPT، Gemini یا Claude (حتی نسخهٔ رایگان) گفتگو می‌کنید و درس را یاد می‌گیرید. مدرس می‌بیند کجا مشکل داشتید تا کمکتان کند.",
+    lead: "مدرس درس‌ها را اینجا می‌گذارد. شما با ChatGPT، Gemini، Claude یا DeepSeek (حتی نسخهٔ رایگان) گفتگو می‌کنید و درس را یاد می‌گیرید. مدرس می‌بیند کجا مشکل داشتید تا کمکتان کند.",
     whatTitle: "این سایت چیست؟",
     what: [
       ["برای دانش‌آموز", "به‌جای فقط خواندن، با گفتگو یاد می‌گیرید. هوش مصنوعی درس را قدم‌به‌قدم توضیح می‌دهد، سؤال می‌پرسد و آزمون می‌گیرد."],
@@ -298,9 +307,18 @@ const fa: Dict = {
       ["درس اضافه کنید", "برای هر درس چند خط بنویسید، یا هدفتان را بگویید تا هوش مصنوعی خودتان همهٔ درس‌ها و آزمون‌ها را بسازد."],
       ["پیشرفت را ببینید", "ببینید چه کسی درس خوانده، نمره‌ها چند است و هر دانش‌آموز در کدام موضوع مشکل دارد."],
     ],
+    appsTitle: "با همان هوش مصنوعی که دارید کار می‌کند",
+    appsLead: "لازم نیست برنامهٔ جدیدی یاد بگیرید. با همان چت هوش مصنوعی که دوست دارید، روی گوشی یا کامپیوتر.",
+    apps: [
+      ["ChatGPT (چت جی‌پی‌تی)", "درس را در ChatGPT رایگان یا پولی بچسبانید. در نسخهٔ پولی می‌توانید یک بار وصلش کنید و فقط بگویید «درس‌هایم را بده»."],
+      ["Gemini (جمینای گوگل)", "درس را در Gemini بچسبانید، حتی اپ رایگان اندروید. با دکمهٔ میکروفون صوتی جواب بدهید."],
+      ["Claude (کلاد)", "درس را در Claude بچسبانید، یا لینک شخصی‌تان را به‌عنوان connector اضافه کنید تا Claude مستقیم درس‌ها را ببیند."],
+      ["DeepSeek (دیپ‌سیک)", "درس را در چت DeepSeek بچسبانید. درس می‌دهد، آزمون می‌گیرد و نتیجه را برای فرستادن به مدرس آماده می‌کند."],
+    ],
     faqTitle: "سؤال‌های رایج",
     faq: [
-      ["باید برای هوش مصنوعی پول بدهم؟", "نه. نسخهٔ رایگان ChatGPT، Gemini و Claude کافی است."],
+      ["از کدام هوش مصنوعی می‌توانم استفاده کنم؟", "ChatGPT، Gemini گوگل، Claude، DeepSeek یا هر چت هوش مصنوعی دیگری که پیام بلند را بخواند."],
+      ["باید برای هوش مصنوعی پول بدهم؟", "نه. نسخهٔ رایگان ChatGPT، Gemini، Claude و DeepSeek کافی است."],
       ["مدرس چت‌های من را می‌خواند؟", "نه. فقط نتیجه فرستاده می‌شود: چه یاد گرفتید، جواب آزمون‌ها و چه چیزی سخت بود."],
       ["باید برنامه‌ای نصب کنم؟", "نه. همه چیز در مرورگر یا اپ هوش مصنوعی روی گوشی کار می‌کند."],
     ],

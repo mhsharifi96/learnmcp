@@ -9,6 +9,8 @@ graded by the server, and AI-written quizzes built from a prompt):
 - Personal finance basics (Persian)
 - Business email writing, Persian -> English (English lessons, Persian notes)
 - University entrance exam prep: biology (Persian)
+- English: IELTS speaking, travel, essential grammar, everyday vocabulary, pronunciation
+  (in learn/management/english_samples.py)
 
 Safe to run more than once: classes, lessons and quizzes are matched by title and never
 overwritten, so instructor edits are kept. Questions are only added to quizzes created now.
@@ -24,6 +26,8 @@ from django.db import transaction
 
 from learn.apps import ensure_instructors_group
 from learn.models import Course, Instructor, Lesson, Question, Quiz
+
+from learn.management.english_samples import ENGLISH_CLASSES
 
 from .build_english_course import PERSIAN
 
@@ -540,8 +544,11 @@ CLASSES = [
 ]
 
 
+CLASSES += ENGLISH_CLASSES
+
+
 class Command(BaseCommand):
-    help = "Create sample classes (programming, math, interview prep, finance, business English, biology) on a demo instructor."
+    help = "Create sample classes (programming, math, interview prep, finance, biology and several English classes) on a demo instructor."
 
     def add_arguments(self, parser):
         parser.add_argument("--username", default="demo", help="Instructor user (created if missing).")
