@@ -50,9 +50,9 @@ export const SEO: Record<
   { siteTitle: string; siteDescription: string; classesTitle: string; classesDescription: string; joinTitle: string; joinDescription: string; notFound: string; classBy: (title: string, instructor: string) => string }
 > = {
   fa: {
-    siteTitle: "learnmcp — با همان هوش مصنوعی خودت یاد بگیر",
+    siteTitle: "learnmcp — معلم خصوصی هوش مصنوعی برای کلاس شما",
     siteDescription:
-      "مدرس درس و آزمون را می‌سازد؛ شما در Claude یا ChatGPT (حتی نسخهٔ رایگان) آن را می‌خوانید. مدرس پیشرفت شما را می‌بیند، نه گفتگوهایتان را.",
+      "مدرس درس‌ها را می‌گذارد و شما با ChatGPT، Gemini یا Claude (حتی رایگان) گفتگو می‌کنید و یاد می‌گیرید. مدرس می‌بیند کجا مشکل داشتید، نه گفتگوهایتان را.",
     classesTitle: "همهٔ کلاس‌ها",
     classesDescription:
       "فهرست کلاس‌های آنلاین learnmcp: برنامه‌نویسی، ریاضی، زبان انگلیسی، آمادگی کنکور و مصاحبه و بیشتر. با هوش مصنوعی خودتان درس بخوانید و آزمون بدهید.",
@@ -62,9 +62,9 @@ export const SEO: Record<
     classBy: (title, instructor) => `کلاس «${title}» با ${instructor} در learnmcp. درس‌ها و آزمون‌ها را با هوش مصنوعی خودتان بخوانید.`,
   },
   en: {
-    siteTitle: "learnmcp — Learn with the AI you already use",
+    siteTitle: "learnmcp — A private AI tutor for your class",
     siteDescription:
-      "Your instructor writes the lessons and quizzes. You study them in Claude or ChatGPT, even on a free plan. Your instructor sees your progress, never your conversations.",
+      "Your teacher puts the lessons here; you learn them by chatting with ChatGPT, Gemini or Claude, even the free versions. Your teacher sees where you got stuck, never your chats.",
     classesTitle: "All classes",
     classesDescription:
       "Online classes on learnmcp: programming, math, English, exam and interview prep and more. Study lessons and take quizzes with the AI you already use.",
