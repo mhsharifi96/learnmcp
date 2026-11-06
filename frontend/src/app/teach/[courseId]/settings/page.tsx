@@ -2,7 +2,8 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { api, ApiError } from "@/lib/api";
+import { api, ApiError, upload } from "@/lib/api";
+import { Cover } from "@/components/cover";
 import { useT } from "@/components/lang";
 import { Alert, Button, Card, Chip, Field, Input, Textarea, useErrorText } from "@/components/ui";
 import { useCourse } from "../course-context";
@@ -19,9 +20,60 @@ export default function Settings() {
   const [days, setDays] = useState(String(course.reminder_after_days ?? 0));
   const [rErrors, setRErrors] = useState<Record<string, string[]>>({});
   const [rSaved, setRSaved] = useState(false);
+  const [imgBusy, setImgBusy] = useState(false);
+  const [imgError, setImgError] = useState("");
 
   return (
     <div className="space-y-5">
+      <Card>
+        <h2 className="mb-1 text-xl font-bold text-lapis">{t.teach.settings.cover}</h2>
+        <p className="mb-3 text-sm text-quiet">{t.teach.settings.coverHelp}</p>
+        <Alert>{imgError}</Alert>
+        <Cover image={course.image} theme={course.theme} alt={course.title} className="mb-3 max-w-md rounded-xl" />
+        <div className="flex flex-wrap gap-2">
+          <label className={`cursor-pointer ${imgBusy ? "pointer-events-none opacity-60" : ""}`}>
+            <span className="inline-flex rounded-lg bg-lapis px-4 py-2 font-semibold text-white hover:brightness-110">
+              {imgBusy ? t.teach.settings.uploading : course.image ? t.teach.settings.replace : t.teach.settings.upload}
+            </span>
+            <input
+              type="file"
+              accept="image/jpeg,image/png,image/webp"
+              className="sr-only"
+              onChange={async (e) => {
+                const file = e.target.files?.[0];
+                e.target.value = "";
+                if (!file) return;
+                setImgBusy(true);
+                setImgError("");
+                try {
+                  await upload(`teach/courses/${course.id}/image`, "image", file);
+                  await reload();
+                } catch (err) {
+                  setImgError(errorText(err));
+                }
+                setImgBusy(false);
+              }}
+            />
+          </label>
+          {course.image && (
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={async () => {
+                setImgError("");
+                try {
+                  await api(`teach/courses/${course.id}/image`, { method: "DELETE" });
+                  await reload();
+                } catch (err) {
+                  setImgError(errorText(err));
+                }
+              }}
+            >
+              {t.teach.settings.removeImage}
+            </Button>
+          )}
+        </div>
+      </Card>
       <Card>
         <h2 className="mb-3 text-xl font-bold text-lapis">{t.teach.settings.title}</h2>
         <Alert>{error}</Alert>

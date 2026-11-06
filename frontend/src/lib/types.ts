@@ -36,6 +36,8 @@ export type CourseSummary = {
   lessons: number | null;
   reminder_after_days: number;
   listed: boolean;
+  image?: string | null;
+  theme?: string;
 };
 export type CourseDetail = Omit<CourseSummary, "lessons"> & { lessons: Lesson[]; quizzes: QuizSummary[]; student_count: number };
 export type Problem = {

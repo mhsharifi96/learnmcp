@@ -240,6 +240,8 @@ const en = {
       reminderTitle: "Inactivity reminders", reminderLabel: "Email a student after this many days without studying",
       reminderHelp: "0 = off. While the student stays inactive, the email repeats every N days. Only students with a confirmed email who haven't turned reminders off get it.",
       listedLabel: "Show this class on the public class list", listedHelp: "Anyone can see its name, description and instructor. Students still need an account and must agree before joining.", reminderOff: "Off", reminderOn: (d: number) => `On: after ${d} day${d === 1 ? "" : "s"}`,
+      cover: "Cover image", coverHelp: "Shown on the class list, the join page and link previews. JPG, PNG or WebP under 3 MB; wide images (about 1200×630) look best. Without a photo, an automatic cover is used.",
+      upload: "Upload image", replace: "Replace image", removeImage: "Use automatic cover", uploading: "Uploading…",
       title: "Class settings", danger: "Delete class", dangerText: "Deletes the class with all lessons, quizzes, students and their data.", deleteConfirm: "Delete this class and all its data? This can't be undone." },
     student: { attempts: "Quiz attempts", events: "Activity", expected: "Expected", aiGenerated: "AI question" },
     builder: {
@@ -497,6 +499,8 @@ const fa: Dict = {
       reminderTitle: "یادآور عدم فعالیت", reminderLabel: "بعد از چند روز درس نخواندن، به دانش‌آموز ایمیل یادآور برود",
       reminderHelp: "۰ = خاموش. تا وقتی دانش‌آموز غیرفعال بماند، هر N روز یک بار تکرار می‌شود. فقط برای دانش‌آموزانی که ایمیلشان را تأیید کرده‌اند و یادآور را خاموش نکرده‌اند.",
       listedLabel: "نمایش این کلاس در فهرست عمومی کلاس‌ها", listedHelp: "همه نام، توضیح و مدرس کلاس را می‌بینند. دانشجو برای عضویت همچنان حساب و رضایت لازم دارد.", reminderOff: "خاموش", reminderOn: (d: number) => `روشن: بعد از ${d} روز`,
+      cover: "عکس کلاس", coverHelp: "در فهرست کلاس‌ها، صفحهٔ ورود به کلاس و پیش‌نمایش لینک نمایش داده می‌شود. JPG، PNG یا WebP زیر ۳ مگابایت؛ عکس عریض (حدود ۱۲۰۰×۶۳۰) بهتر است. بدون عکس، کاور خودکار نمایش داده می‌شود.",
+      upload: "آپلود عکس", replace: "تغییر عکس", removeImage: "استفاده از کاور خودکار", uploading: "در حال آپلود…",
       title: "تنظیمات کلاس", danger: "حذف کلاس", dangerText: "کلاس با همهٔ درس‌ها، آزمون‌ها، دانش‌آموزان و داده‌هایشان حذف می‌شود.", deleteConfirm: "این کلاس و همهٔ داده‌هایش حذف شود؟ این کار برگشت‌پذیر نیست." },
     student: { attempts: "آزمون‌ها", events: "فعالیت‌ها", expected: "جواب درست", aiGenerated: "سؤال AI" },
     builder: {

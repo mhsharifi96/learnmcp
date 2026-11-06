@@ -17,7 +17,7 @@ from django.core.validators import validate_email
 from django.core.exceptions import ValidationError
 from django.db import transaction
 from django.db.models import Count, Q
-from django.http import JsonResponse
+from django.http import HttpResponse, JsonResponse
 from django.utils import timezone
 from django.views.decorators.csrf import ensure_csrf_cookie
 
@@ -37,7 +37,7 @@ from learn.models import (
     Student,
     ToolCall,
 )
-from learn.services import ServiceError, accounts, authoring, courses, enrollments, grading, history, packs, progress, quizzes, tokens
+from learn.services import ServiceError, accounts, authoring, covers, courses, enrollments, grading, history, packs, progress, quizzes, tokens
 
 
 class ApiError(Exception):
@@ -304,6 +304,7 @@ def catalog(request):
     joined = set(Enrollment.objects.filter(student=student).values_list("course_id", flat=True)) if student else set()
     qs = (
         Course.objects.filter(listed=True)
+        .defer("image_data")
         .select_related("instructor")
         .annotate(
             _students=Count("enrollments", distinct=True),
@@ -323,6 +324,7 @@ def catalog(request):
                 "lessons": c._lessons,
                 "students": c._students,
                 "joined": c.id in joined,
+                **covers.payload(c),
             }
             for c in qs
         ]
@@ -331,7 +333,9 @@ def catalog(request):
 
 @api()
 def class_info(request, code: str):
-    course = Course.objects.select_related("instructor").filter(join_code=code.strip().upper()).first()
+    course = (
+        Course.objects.defer("image_data").select_related("instructor").filter(join_code=code.strip().upper()).first()
+    )
     if course is None:
         raise ApiError("No class with this code. Check it with your instructor.", 404)
     student = pages.account_student(request)
@@ -354,7 +358,19 @@ def class_info(request, code: str):
         "linked": student is not None,
         "already_joined": already,
         "student": _student_payload(student),
+        **covers.payload(course),
     }
+
+
+def class_image(request, code: str):
+    """The uploaded cover photo of a class. Cached for a long time: the URL changes on every upload."""
+    course = Course.objects.filter(join_code=code.strip().upper()).only("image_data", "image_type").first()
+    if course is None or not course.image_data:
+        return HttpResponse(status=404)
+    resp = HttpResponse(bytes(course.image_data), content_type=course.image_type or "image/jpeg")
+    resp["Cache-Control"] = "public, max-age=31536000, immutable"
+    resp["X-Content-Type-Options"] = "nosniff"
+    return resp
 
 
 @api(methods=("POST",))
@@ -581,7 +597,7 @@ def _instructor(request) -> Instructor | None:
 
 
 def _courses(request):
-    qs = Course.objects.select_related("instructor")
+    qs = Course.objects.defer("image_data").select_related("instructor")
     if request.user.is_superuser:
         return qs
     inst = _instructor(request)
@@ -682,6 +698,7 @@ def _course_summary(course: Course) -> dict:
         "reminder_after_days": course.reminder_after_days,
         "listed": course.listed,
         "created_at": _dt(course.created_at),
+        **covers.payload(course),
     }
 
 
@@ -839,6 +856,22 @@ def teach_quiz(request, quiz_id: int):
         {"id": lesson.id, "title": lesson.title} for lesson in quiz.course.lessons.order_by("order", "id")
     ]
     return payload
+
+
+@api(methods=("POST", "DELETE"), teach=True)
+def teach_course_image(request, course_id: int):
+    """Upload (multipart field "image") or remove the class cover photo."""
+    course = _course(request, course_id)
+    if request.method == "DELETE":
+        covers.clear_image(course)
+    else:
+        upload = request.FILES.get("image")
+        if upload is None:
+            raise ApiError("Choose an image file.")
+        if upload.size > covers.MAX_BYTES:
+            raise ApiError("The image is too large. Use a JPG, PNG or WebP under 3 MB.")
+        covers.set_image(course, upload.read())
+    return covers.payload(course)
 
 
 @api(methods=("POST",), teach=True)

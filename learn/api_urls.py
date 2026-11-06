@@ -16,6 +16,7 @@ urlpatterns = [
     # students
     path("classes", api.catalog),
     path("classes/<str:code>", api.class_info),
+    path("classes/<str:code>/image", api.class_image),
     path("classes/<str:code>/join", api.join_class),
     path("connect/<int:enrollment_id>", api.connect_info),
     path("enrollments/<int:enrollment_id>/regenerate", api.regenerate),
@@ -31,6 +32,7 @@ urlpatterns = [
     path("teach/courses/<int:course_id>/review", api.teach_review),
     path("teach/courses/<int:course_id>/lessons", api.teach_lessons),
     path("teach/courses/<int:course_id>/quizzes", api.teach_quizzes),
+    path("teach/courses/<int:course_id>/image", api.teach_course_image),
     path("teach/courses/<int:course_id>/ai-prompt", api.teach_ai_prompt),
     path("teach/courses/<int:course_id>/import", api.teach_import),
     path("teach/courses/<int:course_id>/publish", api.teach_publish),

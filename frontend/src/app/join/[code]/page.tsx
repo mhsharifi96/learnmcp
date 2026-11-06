@@ -16,8 +16,15 @@ const loadClass = cache(async (code: string) => {
     instructor: c.instructor,
     listed: c.listed !== false,
     lessons: c.listed !== false && Array.isArray(c.lessons) ? c.lessons : [],
+    image: c.image ?? null,
+    theme: c.theme ?? "general",
   } satisfies PublicClass;
 });
+
+/** Absolute URL of the class cover for previews: the uploaded photo, or the automatic PNG cover. */
+function coverUrl(c: PublicClass): string {
+  return `${siteUrl()}${c.image || `/cover/${c.theme || "general"}`}`;
+}
 
 export async function generateMetadata({ params }: { params: Params }): Promise<Metadata> {
   const { code } = await params;
@@ -34,8 +41,8 @@ export async function generateMetadata({ params }: { params: Params }): Promise<
     // Unlisted classes are only for people with the code: keep them out of search results.
     robots: c.listed ? undefined : { index: false, follow: false },
     authors: [{ name: c.instructor }],
-    openGraph: og(lang, { url: path, title: c.title, description }),
-    twitter: { title: c.title, description },
+    openGraph: { ...og(lang, { url: path, title: c.title, description }), images: [{ url: coverUrl(c), width: 1200, height: 630, alt: c.title }] },
+    twitter: { card: "summary_large_image", title: c.title, description, images: [coverUrl(c)] },
   };
 }
 
@@ -56,6 +63,7 @@ export default async function Page({ params }: { params: Params }) {
     isAccessibleForFree: true,
     provider: { "@type": "Organization", name: "learnmcp", sameAs: `${url}/` },
     author: { "@type": "Person", name: c.instructor },
+    image: coverUrl(c),
     hasCourseInstance: {
       "@type": "CourseInstance",
       courseMode: "Online",

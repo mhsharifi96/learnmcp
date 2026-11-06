@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { api } from "@/lib/api";
+import { Cover } from "@/components/cover";
 import { useT } from "@/components/lang";
 import { Alert, ButtonLink, Card, Chip, Icon, PageTitle, Spinner, inputClass, useErrorText } from "@/components/ui";
 
@@ -16,6 +17,8 @@ export type Klass = {
   lessons: number;
   students: number;
   joined: boolean;
+  image?: string | null;
+  theme?: string;
 };
 
 export default function Classes({ initial = null }: { initial?: Klass[] | null }) {
@@ -113,7 +116,10 @@ export default function Classes({ initial = null }: { initial?: Klass[] | null }
       )}
       <div className="grid gap-4 sm:grid-cols-2">
         {shown.map((c) => (
-          <Card key={c.id} className="flex flex-col !p-5">
+          <Card key={c.id} className="flex flex-col overflow-hidden !p-5">
+            <Link href={c.joined ? "/me/" : `/join/${c.code}/`} className="-mx-5 -mt-5 mb-4 block" tabIndex={-1} aria-hidden>
+              <Cover image={c.image} theme={c.theme} />
+            </Link>
             <div className="mb-1 flex items-start justify-between gap-3">
               <h2 className="font-display text-xl text-lapis" dir="auto">
                 {c.title}

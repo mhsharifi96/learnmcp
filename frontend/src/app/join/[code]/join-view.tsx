@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { api, ApiError } from "@/lib/api";
+import { Cover } from "@/components/cover";
 import { useT } from "@/components/lang";
 import { VerifyNotice } from "@/components/student-auth-form";
 import type { StudentAccount } from "@/lib/types";
@@ -17,6 +18,8 @@ export type PublicClass = {
   instructor: string;
   listed: boolean;
   lessons: { order: number; title: string }[];
+  image?: string | null;
+  theme?: string;
 };
 
 type ClassInfo = PublicClass & {
@@ -55,6 +58,7 @@ export default function Join({ initial = null }: { initial?: PublicClass | null 
 
   const header = (
     <div>
+      <Cover image={shown.image} theme={shown.theme} alt={shown.title} className="mb-5 max-h-72 rounded-2xl" />
       <p className="text-quiet">
         {t.join.by} {shown.instructor}
       </p>

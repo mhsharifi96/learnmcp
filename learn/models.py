@@ -38,6 +38,10 @@ class Course(models.Model):
         default=0,
         help_text="Email a student after this many days without studying (0 = off). Repeats every N days.",
     )
+    # Cover photo uploaded by the instructor, kept in the database (small, backed up with everything else).
+    image_data = models.BinaryField(null=True, blank=True, editable=False)
+    image_type = models.CharField(max_length=30, blank=True, editable=False)
+    image_updated_at = models.DateTimeField(null=True, blank=True, editable=False)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
