@@ -221,11 +221,8 @@ body { overflow-x: clip; }
   animation: hud-in 0.9s var(--ease-out) both, float 7s ease-in-out infinite;
 }
 .hud-a { animation-delay: 0.6s, 1.5s; }
-.hud-b { animation-delay: 0.9s, 0.4s; }
 .hud-c { animation-delay: 1.2s, 2.6s; }
 .hud-label { display: flex; align-items: center; gap: 6px; font-size: 0.72rem; font-weight: 600; letter-spacing: 0.02em; color: #b8c8e0; }
-.hud-bar { background: linear-gradient(90deg, #3fd1c7, #8fb3ff); transform-origin: left; animation: grow-x 1.4s var(--ease-out) 1s both; }
-[dir="rtl"] .hud-bar { background: linear-gradient(270deg, #3fd1c7, #8fb3ff); transform-origin: right; }
 .live-dot { width: 7px; height: 7px; border-radius: 9999px; background: #3fd1c7; animation: ping-soft 1.8s ease-out infinite; color: #3fd1c7; }
 @keyframes hud-in { from { opacity: 0; transform: translateY(14px) scale(0.96); } to { opacity: 1; transform: none; } }
 @keyframes float { 0%, 100% { translate: 0 0; } 50% { translate: 0 -8px; } }
@@ -277,9 +274,28 @@ body { overflow-x: clip; }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .twin-grid, .twin-gradient-text, .eyebrow-dot, .live-dot, .hud, .hud-bar, .hero-in > *, .twin-loop::before { animation: none; }
+  .twin-grid, .twin-gradient-text, .eyebrow-dot, .live-dot, .hud, .hero-in > *, .twin-loop::before { animation: none; }
   .twin-canvas { transition: none; }
   .reveal, .reveal .loop-step, .reveal .why-card { opacity: 1 !important; transform: none !important; translate: none !important; transition: none !important; animation: none !important; }
   .btn-glow, .btn-glow .arrow, .why-card, .why-icon { transition: none; }
   .btn-glow:hover, .why-card:hover, .btn-glow:hover .arrow, .why-card:hover .why-icon { transform: none; }
 }
+
+/* 3D scene labels: positioned in JS from projected anchors (physical left/top on purpose). */
+.scene-label {
+  position: absolute; left: 0; top: 0; white-space: nowrap; pointer-events: none;
+  font-size: 0.75rem; font-weight: 700; letter-spacing: 0.02em; color: #e8f1ff;
+  padding: 3px 10px; border-radius: 9999px; border: 1px solid rgba(255, 255, 255, 0.16);
+  background: rgba(10, 22, 44, 0.6); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
+  opacity: 0; transition: opacity 0.6s var(--ease-out);
+  will-change: transform;
+}
+.scene-label.is-on { opacity: 1; }
+.scene-label-teacher { color: #ffd38a; border-color: rgba(242, 180, 90, 0.4); }
+.scene-label-twin { color: #9ff0e8; border-color: rgba(63, 209, 199, 0.45); box-shadow: 0 0 18px -4px rgba(63, 209, 199, 0.6); }
+.scene-label-student { font-weight: 600; font-size: 0.7rem; }
+
+/* Live activity meter in the HUD. */
+.hud-meter span { flex: 1; border-radius: 2px; background: linear-gradient(180deg, #3fd1c7, rgba(63, 209, 199, 0.25)); transform-origin: bottom; animation: meter 1.6s ease-in-out infinite alternate; }
+@keyframes meter { from { transform: scaleY(0.35); } to { transform: scaleY(1); } }
+@media (prefers-reduced-motion: reduce) { .hud-meter span { animation: none; } .scene-label { transition: none; } }

@@ -3,33 +3,48 @@
 import { useEffect, useRef } from "react";
 import * as THREE from "three";
 
-/* "Digital twin" hero scene: a learner model drawn as a network of knowledge nodes.
-   Turquoise = mastered, saffron = weak spot, white = new. A scan band sweeps the model
-   (the twin being updated), packets travel an orbit (data syncing in).
+/* Hero story in 3D: the teacher (warm sphere) builds their Digital Twin (turquoise hologram).
+   On load the twin's nodes fly out of the teacher and assemble; a stream of knowledge keeps
+   flowing teacher -> twin. Students orbit the twin and practise with it: packets travel
+   twin <-> student. Labels are HTML, positioned each frame from projected 3D anchors.
    Perf: capped DPR, alpha canvas over CSS background, paused offscreen / in hidden tabs,
-   one static frame under prefers-reduced-motion, full dispose on unmount. */
+   one static final frame under prefers-reduced-motion, full dispose on unmount. */
 
 const TURQ = new THREE.Color("#3fd1c7");
 const SAFF = new THREE.Color("#f2b45a");
 const PALE = new THREE.Color("#dbe8ff");
+const BLUE = new THREE.Color("#8fb3ff");
+
+const BUILD_SECONDS = 3.6;
 
 const vertex = /* glsl */ `
+  attribute vec3 aStart;
+  attribute vec3 aColor;
   attribute float aSize;
   attribute float aPhase;
-  attribute vec3 aColor;
+  attribute float aDelay;
   uniform float uTime;
+  uniform float uBuild;
+  uniform float uSpin;
   uniform float uScan;
+  uniform float uScanOn;
   uniform float uPixelRatio;
   varying vec3 vColor;
   varying float vAlpha;
   void main() {
-    vec4 mv = modelViewMatrix * vec4(position, 1.0);
-    float scan = smoothstep(0.32, 0.0, abs(position.y - uScan));
+    float c = cos(uSpin), s = sin(uSpin);
+    vec3 target = vec3(c * position.x + s * position.z, position.y, -s * position.x + c * position.z);
+    float b = clamp(uBuild * 1.7 - aDelay * 0.7, 0.0, 1.0);
+    b = b * b * (3.0 - 2.0 * b);
+    vec3 p = mix(aStart, target, b);
+    vec4 mv = modelViewMatrix * vec4(p, 1.0);
+    float scan = uScanOn * smoothstep(0.28, 0.0, abs(position.y - uScan));
     float pulse = 0.72 + 0.28 * sin(uTime * 1.7 + aPhase);
-    gl_PointSize = aSize * uPixelRatio * (pulse + scan * 1.4) * (7.0 / -mv.z);
+    float travel = 1.0 + (1.0 - b) * b * 4.0; // nodes glow while in flight
+    gl_PointSize = aSize * uPixelRatio * (pulse + scan * 1.4) * travel * (7.0 / -mv.z);
     gl_Position = projectionMatrix * mv;
-    vColor = mix(aColor, vec3(1.0), scan * 0.55);
-    vAlpha = 0.5 + 0.5 * pulse;
+    vColor = mix(aColor, vec3(1.0), scan * 0.55 + (1.0 - b) * 0.4);
+    vAlpha = (0.5 + 0.5 * pulse) * (0.25 + 0.75 * b);
   }
 `;
 
@@ -49,22 +64,26 @@ function fibonacciSphere(n: number, r: number) {
   for (let i = 0; i < n; i++) {
     const y = 1 - (i / (n - 1)) * 2;
     const rad = Math.sqrt(1 - y * y);
-    const th = g * i;
-    // small jitter so it reads organic, not a perfect lattice
     const j = 1 + (Math.random() - 0.5) * 0.06;
-    pts.push(new THREE.Vector3(Math.cos(th) * rad * r * j, y * r * j, Math.sin(th) * rad * r * j));
+    pts.push(new THREE.Vector3(Math.cos(g * i) * rad * r * j, y * r * j, Math.sin(g * i) * rad * r * j));
   }
   return pts;
 }
 
-export default function TwinScene({ rtl }: { rtl: boolean }) {
-  const host = useRef<HTMLDivElement>(null);
+type Labels = { teacher: string; twin: string; student: string };
+
+export default function TwinScene({ rtl, labels }: { rtl: boolean; labels: Labels }) {
+  const holder = useRef<HTMLDivElement>(null);
+  const lTeacher = useRef<HTMLSpanElement>(null);
+  const lTwin = useRef<HTMLSpanElement>(null);
+  const lStudent = useRef<HTMLSpanElement>(null);
 
   useEffect(() => {
-    const el = host.current;
+    const el = holder.current;
     if (!el) return;
     const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     const small = window.matchMedia("(max-width: 767px)").matches;
+    const sx = rtl ? -1 : 1; // mirror the story for right-to-left reading
 
     let renderer: THREE.WebGLRenderer;
     try {
@@ -75,57 +94,104 @@ export default function TwinScene({ rtl }: { rtl: boolean }) {
     const dpr = Math.min(window.devicePixelRatio || 1, 2);
     renderer.setPixelRatio(dpr);
     renderer.setClearColor(0x000000, 0);
-    el.appendChild(renderer.domElement);
     renderer.domElement.style.display = "block";
+    el.appendChild(renderer.domElement);
 
     const scene = new THREE.Scene();
     const camera = new THREE.PerspectiveCamera(42, 1, 0.1, 100);
     camera.position.set(0, 0, 7.2);
-
-    const rig = new THREE.Group(); // parallax + side offset
-    const twin = new THREE.Group(); // slow spin
-    rig.add(twin);
+    const rig = new THREE.Group();
     scene.add(rig);
 
-    // ---- knowledge nodes
-    const N = small ? 280 : 460;
-    const R = 1.75;
-    const pts = fibonacciSphere(N, R);
-    const pos = new Float32Array(N * 3);
-    const col = new Float32Array(N * 3);
-    const size = new Float32Array(N);
-    const phase = new Float32Array(N);
-    pts.forEach((p, i) => {
-      pos.set([p.x, p.y, p.z], i * 3);
-      const r = Math.random();
-      const c = r < 0.14 ? SAFF : r < 0.22 ? PALE : TURQ;
-      col.set([c.r, c.g, c.b], i * 3);
-      size[i] = c === SAFF ? 5.5 + Math.random() * 3 : 3 + Math.random() * 2.5;
-      phase[i] = Math.random() * Math.PI * 2;
-    });
-    const nodeGeo = new THREE.BufferGeometry();
-    nodeGeo.setAttribute("position", new THREE.BufferAttribute(pos, 3));
-    nodeGeo.setAttribute("aColor", new THREE.BufferAttribute(col, 3));
-    nodeGeo.setAttribute("aSize", new THREE.BufferAttribute(size, 1));
-    nodeGeo.setAttribute("aPhase", new THREE.BufferAttribute(phase, 1));
-    const uniforms = { uTime: { value: 0 }, uScan: { value: 0 }, uPixelRatio: { value: dpr } };
-    const nodeMat = new THREE.ShaderMaterial({
-      vertexShader: vertex,
-      fragmentShader: fragment,
-      uniforms,
-      transparent: true,
-      depthWrite: false,
-      blending: THREE.AdditiveBlending,
-    });
-    twin.add(new THREE.Points(nodeGeo, nodeMat));
+    const geos: THREE.BufferGeometry[] = [];
+    const mats: THREE.Material[] = [];
+    const time = { value: 0 };
 
-    // ---- synapses: each node to its 3 nearest neighbours
+    const TEACHER = new THREE.Vector3(-1.95 * sx, 1.05, -0.4);
+    const TWIN = new THREE.Vector3(0.55 * sx, -0.15, 0);
+    const R_T = 0.62;
+    const R_W = 1.3;
+
+    // ---- node cloud factory (teacher + twin share one shader)
+    const nodeCloud = (pts: THREE.Vector3[], pick: () => THREE.Color, starts: (p: THREE.Vector3) => THREE.Vector3, scanOn: number) => {
+      const n = pts.length;
+      const pos = new Float32Array(n * 3);
+      const start = new Float32Array(n * 3);
+      const col = new Float32Array(n * 3);
+      const size = new Float32Array(n);
+      const phase = new Float32Array(n);
+      const delay = new Float32Array(n);
+      pts.forEach((p, i) => {
+        pos.set([p.x, p.y, p.z], i * 3);
+        const s = starts(p);
+        start.set([s.x, s.y, s.z], i * 3);
+        const c = pick();
+        col.set([c.r, c.g, c.b], i * 3);
+        size[i] = c === SAFF ? 5 + Math.random() * 3 : 3 + Math.random() * 2.5;
+        phase[i] = Math.random() * Math.PI * 2;
+        delay[i] = Math.random();
+      });
+      const g = new THREE.BufferGeometry();
+      g.setAttribute("position", new THREE.BufferAttribute(pos, 3));
+      g.setAttribute("aStart", new THREE.BufferAttribute(start, 3));
+      g.setAttribute("aColor", new THREE.BufferAttribute(col, 3));
+      g.setAttribute("aSize", new THREE.BufferAttribute(size, 1));
+      g.setAttribute("aPhase", new THREE.BufferAttribute(phase, 1));
+      g.setAttribute("aDelay", new THREE.BufferAttribute(delay, 1));
+      const u = {
+        uTime: time,
+        uBuild: { value: 1 },
+        uSpin: { value: 0 },
+        uScan: { value: 0 },
+        uScanOn: { value: scanOn },
+        uPixelRatio: { value: dpr },
+      };
+      const m = new THREE.ShaderMaterial({ vertexShader: vertex, fragmentShader: fragment, uniforms: u, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending });
+      geos.push(g);
+      mats.push(m);
+      return { points: new THREE.Points(g, m), u };
+    };
+
+    // ---- teacher
+    const teacherGroup = new THREE.Group();
+    teacherGroup.position.copy(TEACHER);
+    rig.add(teacherGroup);
+    const teacherPts = fibonacciSphere(small ? 110 : 150, R_T);
+    const teacher = nodeCloud(teacherPts, () => (Math.random() < 0.7 ? SAFF : PALE), (p) => p, 0);
+    teacherGroup.add(teacher.points);
+    const haloGeo = new THREE.BufferGeometry().setFromPoints(new THREE.EllipseCurve(0, 0, R_T + 0.28, R_T + 0.28, 0, Math.PI * 2).getPoints(96));
+    const haloMat = new THREE.LineBasicMaterial({ color: SAFF, transparent: true, opacity: 0.35, depthWrite: false });
+    geos.push(haloGeo);
+    mats.push(haloMat);
+    const halo = new THREE.LineLoop(haloGeo, haloMat);
+    halo.rotation.x = 1.2;
+    teacherGroup.add(halo);
+
+    // ---- twin: nodes start inside the teacher and fly over to assemble
+    const twinGroup = new THREE.Group();
+    twinGroup.position.copy(TWIN);
+    rig.add(twinGroup);
+    const N = small ? 260 : 380;
+    const twinPts = fibonacciSphere(N, R_W);
+    const fromTeacher = new THREE.Vector3().subVectors(TEACHER, TWIN);
+    const twin = nodeCloud(
+      twinPts,
+      () => {
+        const r = Math.random();
+        return r < 0.1 ? SAFF : r < 0.2 ? PALE : TURQ;
+      },
+      () => fromTeacher.clone().add(new THREE.Vector3().randomDirection().multiplyScalar(Math.random() * R_T)),
+      1,
+    );
+    twinGroup.add(twin.points);
+
+    // synapses (each node to its 3 nearest), fade in once the twin is assembled
     const seg: number[] = [];
     for (let i = 0; i < N; i++) {
       const near: [number, number][] = [];
       for (let k = 0; k < N; k++) {
         if (k === i) continue;
-        const d = pts[i].distanceToSquared(pts[k]);
+        const d = twinPts[i].distanceToSquared(twinPts[k]);
         if (near.length < 3) near.push([d, k]);
         else {
           let w = 0;
@@ -133,46 +199,86 @@ export default function TwinScene({ rtl }: { rtl: boolean }) {
           if (d < near[w][0]) near[w] = [d, k];
         }
       }
-      for (const [, k] of near) if (k > i) seg.push(pts[i].x, pts[i].y, pts[i].z, pts[k].x, pts[k].y, pts[k].z);
+      for (const [, k] of near) if (k > i) seg.push(twinPts[i].x, twinPts[i].y, twinPts[i].z, twinPts[k].x, twinPts[k].y, twinPts[k].z);
     }
-    const lineGeo = new THREE.BufferGeometry();
-    lineGeo.setAttribute("position", new THREE.Float32BufferAttribute(seg, 3));
-    const lineMat = new THREE.LineBasicMaterial({ color: TURQ, transparent: true, opacity: 0.16, blending: THREE.AdditiveBlending, depthWrite: false });
-    twin.add(new THREE.LineSegments(lineGeo, lineMat));
+    const synGeo = new THREE.BufferGeometry();
+    synGeo.setAttribute("position", new THREE.Float32BufferAttribute(seg, 3));
+    const synMat = new THREE.LineBasicMaterial({ color: TURQ, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false });
+    geos.push(synGeo);
+    mats.push(synMat);
+    const synapses = new THREE.LineSegments(synGeo, synMat);
+    twinGroup.add(synapses);
 
-    // ---- inner core: wireframe icosahedron (the model inside the mirror)
-    const coreGeo = new THREE.IcosahedronGeometry(0.85, 1);
-    const coreMat = new THREE.MeshBasicMaterial({ color: "#6b8fd6", wireframe: true, transparent: true, opacity: 0.28, blending: THREE.AdditiveBlending, depthWrite: false });
+    const coreGeo = new THREE.IcosahedronGeometry(0.55, 1);
+    const coreMat = new THREE.MeshBasicMaterial({ color: BLUE, wireframe: true, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false });
+    geos.push(coreGeo);
+    mats.push(coreMat);
     const core = new THREE.Mesh(coreGeo, coreMat);
-    twin.add(core);
+    twinGroup.add(core);
 
-    // ---- orbit rings + data packets
-    const ringMat = new THREE.LineBasicMaterial({ color: "#8fb3ff", transparent: true, opacity: 0.22, depthWrite: false });
-    const rings: { line: THREE.LineLoop; curve: THREE.EllipseCurve }[] = [];
-    const ringGeos: THREE.BufferGeometry[] = [];
-    [
-      { r: 2.45, tiltX: 1.2, tiltZ: 0.35 },
-      { r: 2.8, tiltX: 1.45, tiltZ: -0.55 },
-    ].forEach(({ r, tiltX, tiltZ }) => {
-      const curve = new THREE.EllipseCurve(0, 0, r, r, 0, Math.PI * 2);
-      const g = new THREE.BufferGeometry().setFromPoints(curve.getPoints(160));
-      ringGeos.push(g);
-      const line = new THREE.LineLoop(g, ringMat);
-      line.rotation.set(tiltX, 0, tiltZ);
-      rig.add(line);
-      rings.push({ line, curve });
+    // ---- knowledge stream teacher -> twin (quadratic bezier with an upward arc)
+    const ctrl = new THREE.Vector3().addVectors(TEACHER, TWIN).multiplyScalar(0.5).add(new THREE.Vector3(0, 0.9, 0.6));
+    const curve = new THREE.QuadraticBezierCurve3(TEACHER, ctrl, TWIN);
+    const arcGeo = new THREE.BufferGeometry().setFromPoints(curve.getPoints(64));
+    const arcMat = new THREE.LineDashedMaterial({ color: SAFF, dashSize: 0.08, gapSize: 0.08, transparent: true, opacity: 0.3, depthWrite: false });
+    geos.push(arcGeo);
+    mats.push(arcMat);
+    const arc = new THREE.Line(arcGeo, arcMat);
+    arc.computeLineDistances();
+    rig.add(arc);
+    const M = small ? 18 : 28;
+    const streamPos = new Float32Array(M * 3);
+    const streamJit = Array.from({ length: M }, () => new THREE.Vector3().randomDirection().multiplyScalar(0.06 + Math.random() * 0.1));
+    const streamGeo = new THREE.BufferGeometry();
+    streamGeo.setAttribute("position", new THREE.BufferAttribute(streamPos, 3));
+    const streamMat = new THREE.PointsMaterial({ color: "#ffd38a", size: 0.07, transparent: true, opacity: 0.9, blending: THREE.AdditiveBlending, depthWrite: false });
+    geos.push(streamGeo);
+    mats.push(streamMat);
+    rig.add(new THREE.Points(streamGeo, streamMat));
+
+    // ---- students orbiting the twin, practising with it
+    const K = small ? 5 : 7;
+    const ORBIT = 2.15;
+    const orbitTilt = new THREE.Euler(1.18, 0, 0.28 * sx);
+    const ringGeo = new THREE.BufferGeometry().setFromPoints(new THREE.EllipseCurve(0, 0, ORBIT, ORBIT, 0, Math.PI * 2).getPoints(160));
+    const ringMat = new THREE.LineBasicMaterial({ color: BLUE, transparent: true, opacity: 0.18, depthWrite: false });
+    geos.push(ringGeo);
+    mats.push(ringMat);
+    const ring = new THREE.LineLoop(ringGeo, ringMat);
+    ring.rotation.copy(orbitTilt);
+    twinGroup.add(ring);
+
+    const studentGeo = new THREE.SphereGeometry(0.075, 16, 16);
+    const studentMat = new THREE.MeshBasicMaterial({ color: PALE });
+    const glowGeo = new THREE.SphereGeometry(0.16, 16, 16);
+    const glowMat = new THREE.MeshBasicMaterial({ color: BLUE, transparent: true, opacity: 0.22, blending: THREE.AdditiveBlending, depthWrite: false });
+    geos.push(studentGeo, glowGeo);
+    mats.push(studentMat, glowMat);
+    const students = Array.from({ length: K }, (_, i) => {
+      const m = new THREE.Mesh(studentGeo, studentMat);
+      m.add(new THREE.Mesh(glowGeo, glowMat));
+      twinGroup.add(m);
+      return { mesh: m, a0: (i / K) * Math.PI * 2, speed: 0.07 + (i % 3) * 0.012 };
     });
-    const P = 6;
-    const pktPos = new Float32Array(P * 3);
+
+    const beamPos = new Float32Array(K * 6);
+    const beamGeo = new THREE.BufferGeometry();
+    beamGeo.setAttribute("position", new THREE.BufferAttribute(beamPos, 3));
+    const beamMat = new THREE.LineBasicMaterial({ color: TURQ, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false });
+    geos.push(beamGeo);
+    mats.push(beamMat);
+    twinGroup.add(new THREE.LineSegments(beamGeo, beamMat));
+
+    const pktPos = new Float32Array(K * 3);
     const pktGeo = new THREE.BufferGeometry();
     pktGeo.setAttribute("position", new THREE.BufferAttribute(pktPos, 3));
-    const pktMat = new THREE.PointsMaterial({ color: "#ffd38a", size: 0.12, transparent: true, opacity: 0.95, blending: THREE.AdditiveBlending, depthWrite: false });
-    const packets = new THREE.Points(pktGeo, pktMat);
-    rig.add(packets);
-    const tmp = new THREE.Vector3();
+    const pktMat = new THREE.PointsMaterial({ color: "#9ff0e8", size: 0.09, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false });
+    geos.push(pktGeo);
+    mats.push(pktMat);
+    twinGroup.add(new THREE.Points(pktGeo, pktMat));
 
     // ---- star dust
-    const S = small ? 260 : 520;
+    const S = small ? 220 : 480;
     const starPos = new Float32Array(S * 3);
     for (let i = 0; i < S; i++) {
       const v = new THREE.Vector3().randomDirection().multiplyScalar(5 + Math.random() * 9);
@@ -181,57 +287,118 @@ export default function TwinScene({ rtl }: { rtl: boolean }) {
     const starGeo = new THREE.BufferGeometry();
     starGeo.setAttribute("position", new THREE.BufferAttribute(starPos, 3));
     const starMat = new THREE.PointsMaterial({ color: "#9fb6d9", size: 0.03, transparent: true, opacity: 0.55, depthWrite: false });
+    geos.push(starGeo);
+    mats.push(starMat);
     const stars = new THREE.Points(starGeo, starMat);
     scene.add(stars);
 
-    // ---- layout: model sits on the "end" side on wide screens
+    // ---- label anchors (HTML labels follow these)
+    const aTeacher = new THREE.Object3D();
+    aTeacher.position.set(0, R_T + 0.45, 0);
+    teacherGroup.add(aTeacher);
+    const aTwin = new THREE.Object3D();
+    aTwin.position.set(0, R_W + 0.35, 0);
+    twinGroup.add(aTwin);
+    const aStudent = new THREE.Object3D();
+    aStudent.position.set(0, 0.32, 0);
+    students[0].mesh.add(aStudent);
+    const anchors: [THREE.Object3D, HTMLElement | null][] = [
+      [aTeacher, lTeacher.current],
+      [aTwin, lTwin.current],
+      [aStudent, lStudent.current],
+    ];
+
+    // ---- layout: story sits on the "end" side on wide screens
+    let W = 1;
+    let H = 1;
     const resize = () => {
-      const w = el.clientWidth;
-      const h = el.clientHeight;
-      if (!w || !h) return;
-      renderer.setSize(w, h, false);
+      W = el.clientWidth;
+      H = el.clientHeight;
+      if (!W || !H) return;
+      renderer.setSize(W, H, false);
       renderer.domElement.style.width = "100%";
       renderer.domElement.style.height = "100%";
-      camera.aspect = w / h;
+      camera.aspect = W / H;
       camera.updateProjectionMatrix();
-      const wide = w >= 768;
-      rig.position.x = wide ? (rtl ? -1 : 1) * Math.min(2.6, camera.aspect * 1.25) : 0;
-      rig.position.y = 0;
-      rig.scale.setScalar(wide ? 1 : 0.78);
+      const wide = W >= 768;
+      rig.position.x = wide ? sx * Math.min(2.5, camera.aspect * 1.2) : 0;
+      rig.position.y = wide ? 0 : -0.1;
+      rig.scale.setScalar(wide ? 1 : 0.7);
     };
     resize();
     const ro = new ResizeObserver(resize);
     ro.observe(el);
 
-    // ---- pointer parallax (desktop)
     const target = { x: 0, y: 0 };
     const onMove = (e: PointerEvent) => {
-      target.x = (e.clientX / window.innerWidth - 0.5) * 0.5;
-      target.y = (e.clientY / window.innerHeight - 0.5) * 0.3;
+      target.x = (e.clientX / window.innerWidth - 0.5) * 0.4;
+      target.y = (e.clientY / window.innerHeight - 0.5) * 0.25;
     };
     if (!reduced) window.addEventListener("pointermove", onMove, { passive: true });
 
-    const clock = new THREE.Clock();
+    const tmp = new THREE.Vector3();
+    const tw = new THREE.Vector3();
     const draw = (t: number) => {
-      uniforms.uTime.value = t;
-      uniforms.uScan.value = Math.sin(t * 0.55) * (R + 0.2);
-      twin.rotation.y = t * 0.12;
+      time.value = t;
+      const build = Math.min(t / BUILD_SECONDS, 1);
+      const settled = THREE.MathUtils.smoothstep(t, BUILD_SECONDS * 0.7, BUILD_SECONDS + 1.2);
+
+      twin.u.uBuild.value = build;
+      twin.u.uSpin.value = t * 0.12;
+      twin.u.uScan.value = Math.sin(t * 0.55) * (R_W + 0.15);
+      synapses.rotation.y = t * 0.12;
+      synMat.opacity = 0.16 * settled;
+      coreMat.opacity = 0.28 * settled;
       core.rotation.x = t * 0.18;
       core.rotation.z = t * 0.09;
+
+      teacher.u.uSpin.value = t * 0.2;
+      halo.rotation.z = t * 0.4;
+
       rig.rotation.y += (target.x - rig.rotation.y) * 0.04;
       rig.rotation.x += (target.y - rig.rotation.x) * 0.04;
       stars.rotation.y = t * 0.01;
-      for (let i = 0; i < P; i++) {
-        const ring = rings[i % rings.length];
-        const u = (t * (0.05 + (i % 3) * 0.015) + i / P) % 1;
-        const p2 = ring.curve.getPoint(u);
-        tmp.set(p2.x, p2.y, 0).applyEuler(ring.line.rotation);
-        pktPos.set([tmp.x, tmp.y, tmp.z], i * 3);
+
+      // knowledge stream: denser while the twin is being built
+      arcMat.opacity = 0.18 + 0.25 * (1 - settled);
+      for (let i = 0; i < M; i++) {
+        const u = (t * (0.22 + 0.25 * (1 - settled)) + i / M) % 1;
+        curve.getPoint(u, tmp).add(streamJit[i]);
+        streamPos.set([tmp.x, tmp.y, tmp.z], i * 3);
       }
+      streamGeo.attributes.position.needsUpdate = true;
+
+      // students practising: beam + packet ping-pong between twin and student
+      beamMat.opacity = 0.22 * settled;
+      pktMat.opacity = 0.95 * settled;
+      students.forEach((st, i) => {
+        const a = st.a0 + t * st.speed;
+        tw.set(Math.cos(a) * ORBIT, Math.sin(a) * ORBIT, 0).applyEuler(orbitTilt);
+        st.mesh.position.copy(tw);
+        beamPos.set([0, 0, 0, tw.x, tw.y, tw.z], i * 6);
+        const ph = (t * 0.45 + i * 0.37) % 2;
+        const u = ph < 1 ? ph : 2 - ph;
+        tmp.copy(tw).multiplyScalar(0.25 + 0.75 * u);
+        pktPos.set([tmp.x, tmp.y, tmp.z], i * 3);
+      });
+      beamGeo.attributes.position.needsUpdate = true;
       pktGeo.attributes.position.needsUpdate = true;
+
       renderer.render(scene, camera);
+
+      // HTML labels follow their anchors
+      for (const [obj, label] of anchors) {
+        if (!label) continue;
+        obj.getWorldPosition(tmp).project(camera);
+        const x = (tmp.x * 0.5 + 0.5) * W;
+        const y = (-tmp.y * 0.5 + 0.5) * H;
+        label.style.transform = `translate3d(${x.toFixed(1)}px, ${y.toFixed(1)}px, 0) translate(-50%, -100%)`;
+      }
+      lTwin.current?.classList.toggle("is-on", settled > 0.6);
+      lStudent.current?.classList.toggle("is-on", settled > 0.9);
     };
 
+    const clock = new THREE.Clock();
     let raf = 0;
     let visible = true;
     let elapsed = 0; // accumulated, so pausing never makes the scene jump
@@ -254,7 +421,7 @@ export default function TwinScene({ rtl }: { rtl: boolean }) {
     let io: IntersectionObserver | undefined;
     const onVis = () => (document.hidden ? stop() : start());
     if (reduced) {
-      draw(4.2); // one calm static frame
+      draw(BUILD_SECONDS + 3); // one calm, fully built frame
     } else {
       io = new IntersectionObserver(([entry]) => {
         visible = entry.isIntersecting;
@@ -265,7 +432,7 @@ export default function TwinScene({ rtl }: { rtl: boolean }) {
       document.addEventListener("visibilitychange", onVis);
       start();
     }
-    requestAnimationFrame(() => el.classList.add("is-ready"));
+    requestAnimationFrame(() => el.parentElement?.classList.add("is-ready"));
 
     return () => {
       stop();
@@ -273,12 +440,25 @@ export default function TwinScene({ rtl }: { rtl: boolean }) {
       ro.disconnect();
       window.removeEventListener("pointermove", onMove);
       document.removeEventListener("visibilitychange", onVis);
-      [nodeGeo, lineGeo, coreGeo, pktGeo, starGeo, ...ringGeos].forEach((g) => g.dispose());
-      [nodeMat, lineMat, coreMat, ringMat, pktMat, starMat].forEach((m) => m.dispose());
+      geos.forEach((g) => g.dispose());
+      mats.forEach((m) => m.dispose());
       renderer.dispose();
       renderer.domElement.remove();
     };
   }, [rtl]);
 
-  return <div ref={host} aria-hidden="true" className="twin-canvas absolute inset-0" />;
+  return (
+    <div aria-hidden="true" className="twin-canvas absolute inset-0">
+      <div ref={holder} className="absolute inset-0" />
+      <span ref={lTeacher} className="scene-label scene-label-teacher is-on">
+        {labels.teacher}
+      </span>
+      <span ref={lTwin} className="scene-label scene-label-twin" dir="ltr">
+        {labels.twin}
+      </span>
+      <span ref={lStudent} className="scene-label scene-label-student">
+        {labels.student}
+      </span>
+    </div>
+  );
 }

@@ -61,17 +61,17 @@ export default function Home() {
       {/* ------------------------------------------------------------ hero */}
       <section className="twin-hero relative -mt-6 mx-[calc(50%-50vw)] overflow-hidden text-white sm:-mt-10">
         <div className="twin-grid absolute inset-0" aria-hidden="true" />
-        <TwinScene rtl={lang === "fa"} />
+        <TwinScene rtl={lang === "fa"} labels={tw.scene} />
         <div className="twin-fade absolute inset-0" aria-hidden="true" />
 
         <div className="relative mx-auto grid min-h-[640px] max-w-5xl items-center gap-10 px-4 pb-16 pt-[300px] md:min-h-[680px] md:grid-cols-2 md:py-24">
           <div className="hero-in">
             <Eyebrow dark>{tw.eyebrow}</Eyebrow>
-            <h1 className="font-display text-[2.6rem] leading-[1.15] sm:text-6xl">
-              <span className="twin-gradient-text block" dir="ltr" style={{ textAlign: "start" }}>
+            <h1 className="font-display">
+              <span className="twin-gradient-text block pb-1 text-[3.2rem] leading-[1.05] sm:text-7xl" dir="ltr" style={{ textAlign: "start" }}>
                 {tw.titleA}
               </span>
-              <span className="block">{tw.titleB}</span>
+              <span className="mt-3 block text-2xl leading-snug text-white sm:text-[2.1rem]">{tw.titleB}</span>
             </h1>
             <p className="mt-5 text-xl font-semibold text-[#cfe3ff]">{tw.sub}</p>
             <p className="mt-3 max-w-prose text-[1.05rem] text-[#a9bbd6]">{tw.lead}</p>
@@ -101,29 +101,25 @@ export default function Home() {
             </dl>
           </div>
 
-          {/* HUD readouts floating around the 3D model (decorative) */}
+          {/* HUD readouts around the 3D story (decorative) */}
           <div className="pointer-events-none relative hidden h-[460px] md:block" aria-hidden="true">
-            <div className="hud hud-a absolute start-0 top-6 w-56">
+            <div className="hud hud-a absolute bottom-0 end-0 w-56">
               <p className="hud-label">
                 <span className="live-dot" /> {tw.hud.model}
               </p>
-              <div className="mt-2 flex items-baseline justify-between">
-                <span className="text-xs text-[#8ea3c2]">{tw.hud.mastery}</span>
-                <span className="font-display text-2xl tabular-nums">{lang === "fa" ? "۷۸٪" : "78%"}</span>
-              </div>
-              <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-white/10">
-                <div className="hud-bar h-full w-[78%] rounded-full" />
-              </div>
-            </div>
-            <div className="hud hud-b absolute bottom-16 end-0 w-60">
-              <p className="hud-label text-[#ffd38a]">
-                <Icon name="alert" className="h-3.5 w-3.5" /> {tw.hud.weak}
+              <p className="mt-2 flex items-baseline gap-2">
+                <span className="font-display text-3xl tabular-nums">{lang === "fa" ? "۲۴" : "24"}</span>
+                <span className="text-xs text-[#8ea3c2]">{tw.hud.practising}</span>
               </p>
-              <p className="mt-1.5 text-sm font-semibold">{tw.hud.weakTopic}</p>
+              <div className="hud-meter mt-2 flex h-6 items-end gap-[3px]">
+                {[40, 65, 35, 80, 55, 90, 70, 45, 85, 60, 75, 50].map((h, i) => (
+                  <span key={i} style={{ height: `${h}%`, animationDelay: `${i * 0.11}s` }} />
+                ))}
+              </div>
             </div>
-            <div className="hud hud-c absolute bottom-2 start-6">
+            <div className="hud hud-c absolute bottom-6 start-0">
               <p className="hud-label">
-                <Icon name="checkCircle" className="h-3.5 w-3.5 text-[#3fd1c7]" /> {tw.hud.sync}
+                <Icon name="checkCircle" className="h-3.5 w-3.5 text-[#3fd1c7]" /> {tw.hud.report}
               </p>
             </div>
           </div>
