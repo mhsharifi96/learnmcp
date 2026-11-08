@@ -136,3 +136,150 @@ details > summary::-webkit-details-marker { display: none; }
 .menu-top-open { transform: translateY(5px) rotate(45deg); }
 .menu-bottom-open { transform: translateY(-5px) rotate(-45deg); }
 @media (prefers-reduced-motion: reduce) { .mobile-nav, .mobile-nav.is-open, .menu-line { transition: none; } }
+
+/* ------------------------------------------------------------ home: digital twin
+   Hero is a dark full-bleed band; WebGL canvas sits over a CSS gradient that is also
+   the no-WebGL fallback. Motion is transform/opacity only and stops under reduced motion. */
+body { overflow-x: clip; }
+
+.twin-hero {
+  --twin-bg: #060d1a;
+  background:
+    radial-gradient(60% 70% at 78% 45%, rgba(63, 209, 199, 0.16), transparent 70%),
+    radial-gradient(50% 60% at 15% 20%, rgba(29, 59, 110, 0.55), transparent 70%),
+    linear-gradient(180deg, #071226 0%, var(--twin-bg) 100%);
+}
+[dir="rtl"] .twin-hero {
+  background:
+    radial-gradient(60% 70% at 22% 45%, rgba(63, 209, 199, 0.16), transparent 70%),
+    radial-gradient(50% 60% at 85% 20%, rgba(29, 59, 110, 0.55), transparent 70%),
+    linear-gradient(180deg, #071226 0%, var(--twin-bg) 100%);
+}
+.twin-cta {
+  background:
+    radial-gradient(70% 90% at 50% 0%, rgba(63, 209, 199, 0.22), transparent 70%),
+    linear-gradient(160deg, #0b1a36 0%, #060d1a 100%);
+}
+.twin-grid {
+  background-image:
+    linear-gradient(rgba(143, 179, 255, 0.07) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(143, 179, 255, 0.07) 1px, transparent 1px);
+  background-size: 44px 44px;
+  mask-image: radial-gradient(80% 70% at 50% 40%, #000 30%, transparent 85%);
+  animation: grid-drift 24s linear infinite;
+}
+@keyframes grid-drift { to { background-position: 44px 44px; } }
+
+.twin-canvas { opacity: 0; transition: opacity 1.2s var(--ease-out); }
+.twin-canvas.is-ready { opacity: 1; }
+@media (max-width: 767px) { .twin-canvas { bottom: auto; height: 320px; top: 0; } }
+
+/* Keeps the hero copy readable where it overlaps the scene. */
+.twin-fade { pointer-events: none; background: linear-gradient(180deg, transparent 0 230px, rgba(6, 13, 26, 0.85) 330px); }
+@media (min-width: 768px) {
+  .twin-fade { background: linear-gradient(90deg, rgba(6, 13, 26, 0.75) 0%, rgba(6, 13, 26, 0.2) 50%, transparent 70%), linear-gradient(0deg, var(--mist) 0, transparent 90px); }
+  [dir="rtl"] .twin-fade { background: linear-gradient(270deg, rgba(6, 13, 26, 0.75) 0%, rgba(6, 13, 26, 0.2) 50%, transparent 70%), linear-gradient(0deg, var(--mist) 0, transparent 90px); }
+}
+
+.twin-gradient-text {
+  background: linear-gradient(100deg, #3fd1c7 0%, #8fb3ff 40%, #f2b45a 70%, #3fd1c7 100%);
+  background-size: 220% auto;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: shimmer 7s linear infinite;
+}
+@keyframes shimmer { to { background-position: 220% center; } }
+
+.eyebrow-dot { width: 6px; height: 6px; border-radius: 9999px; background: currentColor; box-shadow: 0 0 0 0 currentColor; animation: ping-soft 2.4s ease-out infinite; }
+@keyframes ping-soft { 0% { box-shadow: 0 0 0 0 color-mix(in srgb, currentColor 60%, transparent); } 100% { box-shadow: 0 0 0 7px transparent; } }
+
+/* Hero copy enters in sequence. */
+.hero-in > * { animation: fade-up 0.8s var(--ease-out) both; }
+.hero-in > *:nth-child(2) { animation-delay: 0.08s; }
+.hero-in > *:nth-child(3) { animation-delay: 0.16s; }
+.hero-in > *:nth-child(4) { animation-delay: 0.24s; }
+.hero-in > *:nth-child(5) { animation-delay: 0.32s; }
+.hero-in > *:nth-child(6) { animation-delay: 0.4s; }
+
+.btn-glow { position: relative; transition: transform var(--dur-med) var(--ease-spring), box-shadow var(--dur-med) ease; box-shadow: 0 8px 30px -10px rgba(242, 180, 90, 0.7); }
+.btn-glow:hover { transform: translateY(-2px); box-shadow: 0 14px 40px -10px rgba(242, 180, 90, 0.9); }
+.btn-glow .arrow { display: inline-block; transition: transform var(--dur-med) var(--ease-spring); }
+.btn-glow:hover .arrow { transform: translateX(4px); }
+[dir="rtl"] .btn-glow:hover .arrow { transform: translateX(-4px); }
+.btn-glow:focus-visible, .twin-hero a:focus-visible, .twin-cta a:focus-visible { outline-color: #9ff0e8; }
+
+/* Glass HUD readouts. */
+.hud {
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(10, 22, 44, 0.55);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border-radius: 14px;
+  padding: 12px 14px;
+  box-shadow: 0 20px 50px -20px rgba(0, 0, 0, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  animation: hud-in 0.9s var(--ease-out) both, float 7s ease-in-out infinite;
+}
+.hud-a { animation-delay: 0.6s, 1.5s; }
+.hud-b { animation-delay: 0.9s, 0.4s; }
+.hud-c { animation-delay: 1.2s, 2.6s; }
+.hud-label { display: flex; align-items: center; gap: 6px; font-size: 0.72rem; font-weight: 600; letter-spacing: 0.02em; color: #b8c8e0; }
+.hud-bar { background: linear-gradient(90deg, #3fd1c7, #8fb3ff); transform-origin: left; animation: grow-x 1.4s var(--ease-out) 1s both; }
+[dir="rtl"] .hud-bar { background: linear-gradient(270deg, #3fd1c7, #8fb3ff); transform-origin: right; }
+.live-dot { width: 7px; height: 7px; border-radius: 9999px; background: #3fd1c7; animation: ping-soft 1.8s ease-out infinite; color: #3fd1c7; }
+@keyframes hud-in { from { opacity: 0; transform: translateY(14px) scale(0.96); } to { opacity: 1; transform: none; } }
+@keyframes float { 0%, 100% { translate: 0 0; } 50% { translate: 0 -8px; } }
+
+/* Scroll reveal: hidden only when scripts run, so content never disappears without JS. */
+@media (scripting: enabled) {
+  .reveal { opacity: 0; transform: translateY(28px); transition: opacity 0.8s var(--ease-out), transform 0.9s var(--ease-out); }
+  .reveal.is-in { opacity: 1; transform: none; }
+  .reveal:not(.is-in) .loop-step, .reveal:not(.is-in) .why-card { opacity: 0; }
+  .reveal.is-in .loop-step, .reveal.is-in .why-card { animation: rise-in 0.7s var(--ease-out) both; animation-delay: calc(var(--i, 0) * 90ms + 150ms); }
+}
+/* translate (not transform) so the hover lift on the same cards is not overridden */
+@keyframes rise-in { from { opacity: 0; translate: 0 18px; } to { opacity: 1; translate: 0 0; } }
+.why-card { transition: transform var(--dur-med) var(--ease-spring), box-shadow var(--dur-med) ease; }
+
+/* Learn -> measure -> mirror loop: a data line flows between the steps. */
+.loop-num { background: linear-gradient(135deg, var(--lapis), var(--turquoise)); box-shadow: 0 8px 20px -8px color-mix(in srgb, var(--turquoise) 70%, transparent); }
+@media (min-width: 768px) {
+  .twin-loop::before {
+    content: ""; position: absolute; inset-inline: 8%; top: 46px; height: 2px; z-index: 0;
+    background: repeating-linear-gradient(90deg, color-mix(in srgb, var(--turquoise) 55%, transparent) 0 8px, transparent 8px 16px);
+    background-size: 32px 2px;
+    animation: flow 1.2s linear infinite;
+  }
+  [dir="rtl"] .twin-loop::before { animation-direction: reverse; }
+  .loop-step { z-index: 1; }
+}
+@keyframes flow { to { background-position: 32px 0; } }
+
+/* Benefit cards: spotlight border on hover. */
+.why-card { box-shadow: 0 1px 2px rgba(20, 34, 43, 0.04); }
+.why-card::before {
+  content: ""; position: absolute; inset: 0; border-radius: inherit; padding: 1px; pointer-events: none;
+  background: linear-gradient(135deg, var(--turquoise), transparent 40%, transparent 60%, var(--saffron));
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor; mask-composite: exclude;
+  opacity: 0; transition: opacity var(--dur-med) ease;
+}
+.why-card:hover { transform: translateY(-4px); box-shadow: 0 18px 40px -20px color-mix(in srgb, var(--lapis) 45%, transparent); }
+.why-card:hover::before { opacity: 1; }
+.why-icon { transition: transform var(--dur-med) var(--ease-spring), background-color var(--dur-med) ease, color var(--dur-med) ease; }
+.why-card:hover .why-icon { transform: scale(1.08) rotate(-4deg); background: var(--lapis); color: #fff; }
+
+/* Vertical connector between numbered steps. */
+.steps > li:not(:last-child)::after {
+  content: ""; position: absolute; inset-inline-start: 17px; top: 40px; bottom: -16px; width: 2px;
+  background: linear-gradient(var(--lapis), color-mix(in srgb, var(--turquoise) 40%, transparent));
+  opacity: 0.25;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .twin-grid, .twin-gradient-text, .eyebrow-dot, .live-dot, .hud, .hud-bar, .hero-in > *, .twin-loop::before { animation: none; }
+  .twin-canvas { transition: none; }
+  .reveal, .reveal .loop-step, .reveal .why-card { opacity: 1 !important; transform: none !important; translate: none !important; transition: none !important; animation: none !important; }
+  .btn-glow, .btn-glow .arrow, .why-card, .why-icon { transition: none; }
+  .btn-glow:hover, .why-card:hover, .btn-glow:hover .arrow, .why-card:hover .why-icon { transform: none; }
+}
