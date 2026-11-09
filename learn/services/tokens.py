@@ -46,7 +46,7 @@ def resolve(raw: str):
         return None
     return (
         Enrollment.objects.select_related("student", "course")
-        .filter(token_hash=hash_token(raw))
+        .filter(token_hash=hash_token(raw), approved_at__isnull=False)
         .first()
     )
 

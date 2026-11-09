@@ -87,7 +87,7 @@ def read_key(key: str) -> tuple[Enrollment, dict]:
     enrollment = (
         Enrollment.objects.select_related("student", "course").filter(pk=payload.get("e")).first()
     )
-    if enrollment is None or payload.get("t") != _fingerprint(enrollment):
+    if enrollment is None or not enrollment.approved or payload.get("t") != _fingerprint(enrollment):
         raise ServiceError("This prompt no longer works (you left the class or made a new link). Copy a fresh one.")
     if payload.get("k") not in (KIND_LESSON, KIND_QUIZ, KIND_UNIT):
         raise ServiceError("This link is not valid.")
@@ -336,7 +336,11 @@ RESULT JSON (exactly this shape):
 def quiz_prompt(enrollment, quiz_id: int, base_url: str) -> str:
     quiz = (
         Quiz.objects.published().select_related("course", "lesson")
-        .filter(pk=quiz_id, course__enrollments__student_id=enrollment.student_id)
+        .filter(
+            pk=quiz_id,
+            course__enrollments__student_id=enrollment.student_id,
+            course__enrollments__approved_at__isnull=False,
+        )
         .first()
     )
     if quiz is None:

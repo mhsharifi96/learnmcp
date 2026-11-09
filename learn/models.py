@@ -34,6 +34,10 @@ class Course(models.Model):
     listed = models.BooleanField(
         default=True, help_text="Show this class on the public class list. Students still need to join."
     )
+    requires_approval = models.BooleanField(
+        default=False,
+        help_text="New students wait for a site admin to approve them before lessons and quizzes open.",
+    )
     reminder_after_days = models.PositiveSmallIntegerField(
         default=0,
         help_text="Email a student after this many days without studying (0 = off). Repeats every N days.",
@@ -270,6 +274,9 @@ class Enrollment(models.Model):
     token_hint = models.CharField(max_length=8, blank=True, editable=False, help_text="Last characters of the token.")
     consent_at = models.DateTimeField()
     joined_at = models.DateTimeField(auto_now_add=True)
+    approved_at = models.DateTimeField(
+        null=True, blank=True, help_text="Empty while the student waits for admin approval (classes that need it)."
+    )
     token_rotated_at = models.DateTimeField(null=True, blank=True)
     last_activity_at = models.DateTimeField(null=True, blank=True)
     last_reminder_at = models.DateTimeField(null=True, blank=True, help_text="Last inactivity reminder email.")
@@ -280,6 +287,10 @@ class Enrollment(models.Model):
 
     def __str__(self):
         return f"{self.student.name} in {self.course.title}"
+
+    @property
+    def approved(self) -> bool:
+        return self.approved_at is not None
 
     def touch(self):
         now = timezone.now()

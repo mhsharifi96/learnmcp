@@ -122,9 +122,11 @@ export default function Classes({ initial = null }: { initial?: Klass[] | null }
             </Link>
             <div className="mb-1 flex items-start justify-between gap-3">
               <h2 className="font-display text-xl text-lapis" dir="auto">
-                {c.title}
+                <Link href={c.joined ? "/me/" : `/join/${c.code}/`} className="text-inherit hover:no-underline">
+                  {c.title}
+                </Link>
               </h2>
-              {c.joined && <Chip tone="ok">{t.catalog.joined}</Chip>}
+              {c.joined ? <Chip tone="ok">{t.catalog.joined}</Chip> : <Chip tone="ok">{t.catalog.free}</Chip>}
             </div>
             <p className="mb-2 flex items-center gap-1.5 text-sm text-quiet">
               <Icon name="users" className="h-4 w-4" />

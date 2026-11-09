@@ -105,6 +105,12 @@ const en = {
     details: "Your details", linked: "This class will be added to the learnmcp connection you already use.",
     name: "Name", email: "Email", consent: "I understand what is shared with my instructor and I agree.",
     submit: "Join and get my connection link", already: "You already joined this class.", goMe: "Go to my classes",
+    submitApproval: "Register for this free class",
+    free: "Free", locked: "Locked", lockedTitle: "Lessons and quizzes are locked",
+    lockedText: "Register for free to unlock the full lesson content, practice and quizzes of this class.",
+    lockedQuiz: (n: number) => `Quiz ${n}`, quizzesTitle: "Quizzes", syllabus: "Syllabus", about: "About this class",
+    registerCta: "Register for free", pendingTitle: "Registration received",
+    pendingText: "Your registration is complete. Access to the lessons and quizzes will open after the site admin approves it; we'll email you when it does.",
   },
   connect: {
     title: "Connect your AI to", personal: "This is your personal link. Treat it like a password: anyone with it can act as you.",
@@ -153,10 +159,11 @@ const en = {
     pronunciation: { label: "Pronunciation", help: "Hard sounds for Persian speakers, minimal pairs, answered by voice.", ph: "th /θ/ /ð/ and w vs v, with short sentences to repeat." },
   },
   catalog: {
-    title: "All classes", lead: "Classes you can join. Filter by instructor or search by name.",
+    free: "Free", locked: "Register to unlock", pending: "Waiting for approval",
+    title: "Free online courses", lead: "Free courses you can register for: English and IELTS, programming, Excel, AI, exam prep, marketing and career skills. Search by topic or filter by instructor, then study with ChatGPT, Gemini, Claude or DeepSeek.",
     search: "Search classes", instructor: "Instructor", allInstructors: "All instructors",
     lessons: (n: number) => `${n} lesson${n === 1 ? "" : "s"}`, students: (n: number) => `${n} student${n === 1 ? "" : "s"}`,
-    join: "View and join", joined: "Joined", open: "Open", empty: "No classes match.", count: (n: number) => `${n} class${n === 1 ? "" : "es"}`,
+    join: "View and register free", joined: "Joined", open: "Open", empty: "No classes match.", count: (n: number) => `${n} class${n === 1 ? "" : "es"}`,
   },
   hist: {
     continue: "Continue learning", next: "Next", allDone: "All lessons done 🎉", connect: "Connect an AI app (MCP)", regenerateNote: "To connect Claude or ChatGPT with a connector you need a personal link. Making a new one stops the old link.",
@@ -394,6 +401,12 @@ const fa: Dict = {
     details: "مشخصات شما", linked: "این کلاس به همان اتصال learnmcp که الان دارید اضافه می‌شود.",
     name: "نام", email: "ایمیل", consent: "می‌دانم چه چیزهایی با مدرس به اشتراک گذاشته می‌شود و موافقم.",
     submit: "ثبت‌نام و دریافت لینک اتصال", already: "قبلاً در این کلاس ثبت‌نام کرده‌اید.", goMe: "رفتن به کلاس‌های من",
+    submitApproval: "ثبت‌نام رایگان در این دوره",
+    free: "رایگان", locked: "قفل", lockedTitle: "درس‌ها و آزمون‌ها قفل هستند",
+    lockedText: "برای باز شدن محتوای کامل درس‌ها، تمرین‌ها و آزمون‌های این دوره رایگان ثبت‌نام کنید.",
+    lockedQuiz: (n: number) => `آزمون ${n}`, quizzesTitle: "آزمون‌ها", syllabus: "سرفصل‌های دوره", about: "دربارهٔ این دوره",
+    registerCta: "ثبت‌نام رایگان", pendingTitle: "ثبت‌نام شما انجام شد",
+    pendingText: "ثبت‌نام شما با موفقیت انجام شد. بعد از تأیید مدیر سایت، دسترسی به درس‌ها و آزمون‌ها برای شما باز خواهد شد و با ایمیل خبرتان می‌کنیم.",
   },
   connect: {
     title: "اتصال هوش مصنوعی به", personal: "این لینک شخصی شماست. مثل رمز عبور از آن محافظت کنید: هر کس آن را داشته باشد می‌تواند به‌جای شما کار کند.",
@@ -442,10 +455,11 @@ const fa: Dict = {
     pronunciation: { label: "تلفظ", help: "صداهای سخت برای فارسی‌زبان‌ها، جفت‌کلمه‌ها، با جواب صوتی.", ph: "صدای th و تفاوت w و v، با جمله‌های کوتاه برای تکرار." },
   },
   catalog: {
-    title: "همهٔ کلاس‌ها", lead: "کلاس‌هایی که می‌توانید عضوشان شوید. بر اساس مدرس فیلتر کنید یا اسم کلاس را جستجو کنید.",
+    free: "رایگان", locked: "برای باز شدن ثبت‌نام کنید", pending: "در انتظار تأیید",
+    title: "دوره‌های آموزش رایگان آنلاین", lead: "دوره‌های رایگان زبان انگلیسی و آیلتس، برنامه‌نویسی و پایتون، اکسل، هوش مصنوعی، کنکور، بازاریابی و مهارت‌های شغلی. موضوع را جستجو کنید، رایگان ثبت‌نام کنید و با ChatGPT، Gemini، Claude یا DeepSeek یاد بگیرید.",
     search: "جستجوی کلاس", instructor: "مدرس", allInstructors: "همهٔ مدرس‌ها",
     lessons: (n: number) => `${n} درس`, students: (n: number) => `${n} دانشجو`,
-    join: "مشاهده و عضویت", joined: "عضو هستید", open: "ورود", empty: "کلاسی پیدا نشد.", count: (n: number) => `${n} کلاس`,
+    join: "مشاهده و ثبت‌نام رایگان", joined: "عضو هستید", open: "ورود", empty: "کلاسی پیدا نشد.", count: (n: number) => `${n} کلاس`,
   },
   hist: {
     continue: "ادامهٔ یادگیری", next: "بعدی", allDone: "همهٔ درس‌ها تمام شد 🎉", connect: "اتصال اپ هوش مصنوعی (MCP)", regenerateNote: "برای اتصال Claude یا ChatGPT با connector لینک شخصی لازم است. ساختن لینک جدید، لینک قبلی را از کار می‌اندازد.",

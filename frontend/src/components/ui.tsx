@@ -31,8 +31,8 @@ export function ButtonLink({ href, variant = "primary", className = "", children
   );
 }
 
-export function Card({ className = "", children }: { className?: string; children: React.ReactNode }) {
-  return <section className={`rounded-xl border border-line bg-surface p-5 shadow-sm sm:p-6 ${className}`}>{children}</section>;
+export function Card({ className = "", id, children }: { className?: string; id?: string; children: React.ReactNode }) {
+  return <section id={id} className={`rounded-xl border border-line bg-surface p-5 shadow-sm sm:p-6 ${className}`}>{children}</section>;
 }
 
 export function Field({

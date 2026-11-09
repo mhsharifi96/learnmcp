@@ -4,10 +4,11 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import { api } from "@/lib/api";
+import { PendingNotice } from "@/app/join/[code]/join-view";
 import { useT } from "@/components/lang";
 import { Alert, Button, Card, CopyBox, PageTitle, Spinner, useErrorText } from "@/components/ui";
 
-type Info = { enrollment_id: number; course: string; mcp_url: string | null; token_hint: string; other_classes: number };
+type Info = { enrollment_id: number; pending?: boolean; course: string; mcp_url: string | null; token_hint: string; other_classes: number };
 
 export default function Connect() {
   const t = useT();
@@ -25,6 +26,15 @@ export default function Connect() {
 
   if (error) return <Alert>{error}</Alert>;
   if (!info) return <Spinner />;
+  if (info.pending)
+    return (
+      <div className="mx-auto max-w-2xl space-y-5">
+        <PageTitle>{info.course}</PageTitle>
+        <Card>
+          <PendingNotice />
+        </Card>
+      </div>
+    );
 
   return (
     <div className="space-y-5">

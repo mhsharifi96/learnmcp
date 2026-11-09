@@ -21,7 +21,10 @@ def join(course, *, name: str, email: str, existing_student: Student | None = No
     if Enrollment.objects.filter(student=student, course=course).exists():
         raise ServiceError("You have already joined this class.")
 
-    enrollment = Enrollment(student=student, course=course, consent_at=timezone.now())
+    now = timezone.now()
+    enrollment = Enrollment(
+        student=student, course=course, consent_at=now, approved_at=None if course.requires_approval else now
+    )
     raw = tokens.assign_new_token(enrollment, save=False)
     enrollment.save()
     return enrollment, raw
@@ -34,6 +37,24 @@ def leave(enrollment) -> None:
     enrollment.delete()  # cascades attempts, answers, events, tool-call logs
     if student.user_id is None and not student.enrollments.exists():
         student.delete()  # account-less students exist only through their classes
+
+
+def approve(queryset, *, base_url: str = "") -> int:
+    """Open lessons and quizzes for enrollments waiting for admin approval and email the students.
+
+    Returns how many enrollments changed.
+    """
+    from learn.services import emails
+
+    pending = list(queryset.filter(approved_at__isnull=True).select_related("student", "course"))
+    Enrollment.objects.filter(pk__in=[e.pk for e in pending]).update(approved_at=timezone.now())
+    for e in pending:
+        if e.student.email:
+            emails.send(
+                "approved", e.student.email, e.student.lang,
+                name=e.student.name, course=e.course.title, link=f"{base_url}/me/",
+            )
+    return len(pending)
 
 
 PROBLEM_CATEGORIES = {c for c, _ in Event.CATEGORY_CHOICES}

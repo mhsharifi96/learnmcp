@@ -58,14 +58,59 @@ const fragment = /* glsl */ `
   }
 `;
 
-function fibonacciSphere(n: number, r: number) {
+/* Points on the surface of a human bust (head, neck, shoulders, torso, upper arms), facing +z.
+   Height is `h`, centred on the origin. Nearest-neighbour lines between them read as a wireframe person. */
+const HEAD_Y = 0.36; // head centre, as a share of the height above the origin
+function humanFigure(n: number, h: number) {
+  const k = h / 2.6; // the shape is designed 2.6 units tall
   const pts: THREE.Vector3[] = [];
-  const g = Math.PI * (3 - Math.sqrt(5));
+  const rnd = (a: number, b: number) => a + Math.random() * (b - a);
+  const head = () => {
+    const d = new THREE.Vector3().randomDirection();
+    return new THREE.Vector3(d.x * 0.27, d.y * 0.33 + HEAD_Y * 2.6, d.z * 0.29);
+  };
+  const neck = () => {
+    const a = rnd(0, Math.PI * 2);
+    return new THREE.Vector3(Math.cos(a) * 0.12, rnd(0.5, 0.66), Math.sin(a) * 0.11);
+  };
+  const torso = () => {
+    // v: 0 at the bottom edge (-1.3) to 1 at the top of the shoulders (0.6)
+    const v = Math.random();
+    const y = -1.3 + v * 1.9;
+    let rx = 0.42 + 0.16 * THREE.MathUtils.smoothstep(v, 0.35, 0.8);
+    let rz = 0.26 + 0.04 * Math.sin(v * Math.PI);
+    if (v > 0.82) {
+      const q = Math.sqrt(Math.max(0, 1 - ((v - 0.82) / 0.18) ** 2));
+      rx = 0.13 + (rx - 0.13) * q;
+      rz = 0.12 + (rz - 0.12) * q;
+    }
+    const a = rnd(0, Math.PI * 2);
+    return new THREE.Vector3(Math.cos(a) * rx, y, Math.sin(a) * rz);
+  };
+  const arm = () => {
+    const side = Math.random() < 0.5 ? -1 : 1;
+    const from = new THREE.Vector3(0.6 * side, 0.4, 0);
+    const to = new THREE.Vector3(0.74 * side, -0.75, 0.04);
+    const u = Math.random();
+    const axis = new THREE.Vector3().subVectors(to, from).normalize();
+    const ring = new THREE.Vector3().randomDirection().projectOnPlane(axis).normalize().multiplyScalar(0.13 - u * 0.03);
+    return from.lerp(to, u).add(ring);
+  };
+  // shares roughly by surface area
+  const parts: [number, () => THREE.Vector3][] = [[0.24, head], [0.05, neck], [0.53, torso], [0.18, arm]];
   for (let i = 0; i < n; i++) {
-    const y = 1 - (i / (n - 1)) * 2;
-    const rad = Math.sqrt(1 - y * y);
-    const j = 1 + (Math.random() - 0.5) * 0.06;
-    pts.push(new THREE.Vector3(Math.cos(g * i) * rad * r * j, y * r * j, Math.sin(g * i) * rad * r * j));
+    let r = Math.random();
+    let f = parts[parts.length - 1][1];
+    for (const [w, fn] of parts) {
+      if (r < w) {
+        f = fn;
+        break;
+      }
+      r -= w;
+    }
+    const p = f();
+    const j = 1 + (Math.random() - 0.5) * 0.04;
+    pts.push(p.multiplyScalar(k * j));
   }
   return pts;
 }
@@ -109,8 +154,8 @@ export default function TwinScene({ rtl, labels }: { rtl: boolean; labels: Label
 
     const TEACHER = new THREE.Vector3(-1.95 * sx, 1.05, -0.4);
     const TWIN = new THREE.Vector3(0.55 * sx, -0.15, 0);
-    const R_T = 0.62;
-    const R_W = 1.3;
+    const R_T = 0.62; // teacher figure half-height
+    const R_W = 1.3; // twin figure half-height
 
     // ---- node cloud factory (teacher + twin share one shader)
     const nodeCloud = (pts: THREE.Vector3[], pick: () => THREE.Color, starts: (p: THREE.Vector3) => THREE.Vector3, scanOn: number) => {
@@ -156,15 +201,16 @@ export default function TwinScene({ rtl, labels }: { rtl: boolean; labels: Label
     const teacherGroup = new THREE.Group();
     teacherGroup.position.copy(TEACHER);
     rig.add(teacherGroup);
-    const teacherPts = fibonacciSphere(small ? 110 : 150, R_T);
+    const teacherPts = humanFigure(small ? 130 : 180, R_T * 2);
     const teacher = nodeCloud(teacherPts, () => (Math.random() < 0.7 ? SAFF : PALE), (p) => p, 0);
     teacherGroup.add(teacher.points);
-    const haloGeo = new THREE.BufferGeometry().setFromPoints(new THREE.EllipseCurve(0, 0, R_T + 0.28, R_T + 0.28, 0, Math.PI * 2).getPoints(96));
+    const haloGeo = new THREE.BufferGeometry().setFromPoints(new THREE.EllipseCurve(0, 0, R_T * 0.75, R_T * 0.75, 0, Math.PI * 2).getPoints(96));
     const haloMat = new THREE.LineBasicMaterial({ color: SAFF, transparent: true, opacity: 0.35, depthWrite: false });
     geos.push(haloGeo);
     mats.push(haloMat);
     const halo = new THREE.LineLoop(haloGeo, haloMat);
-    halo.rotation.x = 1.2;
+    halo.rotation.x = 1.35;
+    halo.position.y = -R_T * 0.85;
     teacherGroup.add(halo);
 
     // ---- twin: nodes start inside the teacher and fly over to assemble
@@ -172,7 +218,7 @@ export default function TwinScene({ rtl, labels }: { rtl: boolean; labels: Label
     twinGroup.position.copy(TWIN);
     rig.add(twinGroup);
     const N = small ? 260 : 380;
-    const twinPts = fibonacciSphere(N, R_W);
+    const twinPts = humanFigure(N, R_W * 2);
     const fromTeacher = new THREE.Vector3().subVectors(TEACHER, TWIN);
     const twin = nodeCloud(
       twinPts,
@@ -209,11 +255,13 @@ export default function TwinScene({ rtl, labels }: { rtl: boolean; labels: Label
     const synapses = new THREE.LineSegments(synGeo, synMat);
     twinGroup.add(synapses);
 
-    const coreGeo = new THREE.IcosahedronGeometry(0.55, 1);
+    // a small glowing "mind" inside the head
+    const coreGeo = new THREE.IcosahedronGeometry(0.17, 1);
     const coreMat = new THREE.MeshBasicMaterial({ color: BLUE, wireframe: true, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false });
     geos.push(coreGeo);
     mats.push(coreMat);
     const core = new THREE.Mesh(coreGeo, coreMat);
+    core.position.y = HEAD_Y * R_W * 2;
     twinGroup.add(core);
 
     // ---- knowledge stream teacher -> twin (quadratic bezier with an upward arc)
@@ -248,15 +296,23 @@ export default function TwinScene({ rtl, labels }: { rtl: boolean; labels: Label
     ring.rotation.copy(orbitTilt);
     twinGroup.add(ring);
 
-    const studentGeo = new THREE.SphereGeometry(0.075, 16, 16);
+    // students: small low-poly people (head + shoulders/body), solid core with a wireframe glow
+    const headGeo = new THREE.IcosahedronGeometry(0.05, 1);
+    headGeo.translate(0, 0.1, 0);
+    const bodyGeo = new THREE.CylinderGeometry(0.035, 0.085, 0.14, 7, 1);
+    bodyGeo.translate(0, -0.015, 0);
     const studentMat = new THREE.MeshBasicMaterial({ color: PALE });
-    const glowGeo = new THREE.SphereGeometry(0.16, 16, 16);
-    const glowMat = new THREE.MeshBasicMaterial({ color: BLUE, transparent: true, opacity: 0.22, blending: THREE.AdditiveBlending, depthWrite: false });
-    geos.push(studentGeo, glowGeo);
+    const glowHeadGeo = new THREE.IcosahedronGeometry(0.085, 1);
+    glowHeadGeo.translate(0, 0.1, 0);
+    const glowBodyGeo = new THREE.CylinderGeometry(0.06, 0.12, 0.2, 7, 1);
+    glowBodyGeo.translate(0, -0.02, 0);
+    const glowMat = new THREE.MeshBasicMaterial({ color: BLUE, wireframe: true, transparent: true, opacity: 0.35, blending: THREE.AdditiveBlending, depthWrite: false });
+    geos.push(headGeo, bodyGeo, glowHeadGeo, glowBodyGeo);
     mats.push(studentMat, glowMat);
     const students = Array.from({ length: K }, (_, i) => {
-      const m = new THREE.Mesh(studentGeo, studentMat);
-      m.add(new THREE.Mesh(glowGeo, glowMat));
+      const m = new THREE.Group();
+      m.add(new THREE.Mesh(headGeo, studentMat), new THREE.Mesh(bodyGeo, studentMat));
+      m.add(new THREE.Mesh(glowHeadGeo, glowMat), new THREE.Mesh(glowBodyGeo, glowMat));
       twinGroup.add(m);
       return { mesh: m, a0: (i / K) * Math.PI * 2, speed: 0.07 + (i % 3) * 0.012 };
     });
@@ -294,13 +350,13 @@ export default function TwinScene({ rtl, labels }: { rtl: boolean; labels: Label
 
     // ---- label anchors (HTML labels follow these)
     const aTeacher = new THREE.Object3D();
-    aTeacher.position.set(0, R_T + 0.45, 0);
+    aTeacher.position.set(0, R_T + 0.3, 0);
     teacherGroup.add(aTeacher);
     const aTwin = new THREE.Object3D();
-    aTwin.position.set(0, R_W + 0.35, 0);
+    aTwin.position.set(0, R_W + 0.3, 0);
     twinGroup.add(aTwin);
     const aStudent = new THREE.Object3D();
-    aStudent.position.set(0, 0.32, 0);
+    aStudent.position.set(0, 0.36, 0);
     students[0].mesh.add(aStudent);
     const anchors: [THREE.Object3D, HTMLElement | null][] = [
       [aTeacher, lTeacher.current],
@@ -344,15 +400,17 @@ export default function TwinScene({ rtl, labels }: { rtl: boolean; labels: Label
       const settled = THREE.MathUtils.smoothstep(t, BUILD_SECONDS * 0.7, BUILD_SECONDS + 1.2);
 
       twin.u.uBuild.value = build;
-      twin.u.uSpin.value = t * 0.12;
-      twin.u.uScan.value = Math.sin(t * 0.55) * (R_W + 0.15);
-      synapses.rotation.y = t * 0.12;
-      synMat.opacity = 0.16 * settled;
-      coreMat.opacity = 0.28 * settled;
+      // the figure faces the viewer and only sways, so it reads as a person
+      const sway = Math.sin(t * 0.3) * 0.35;
+      twin.u.uSpin.value = sway;
+      twin.u.uScan.value = Math.sin(t * 0.55) * (R_W + 0.05);
+      synapses.rotation.y = sway;
+      synMat.opacity = 0.2 * settled;
+      coreMat.opacity = (0.3 + 0.15 * Math.sin(t * 2.1)) * settled;
       core.rotation.x = t * 0.18;
-      core.rotation.z = t * 0.09;
+      core.rotation.y = t * 0.27;
 
-      teacher.u.uSpin.value = t * 0.2;
+      teacher.u.uSpin.value = Math.sin(t * 0.25 + 1) * 0.3;
       halo.rotation.z = t * 0.4;
 
       rig.rotation.y += (target.x - rig.rotation.y) * 0.04;
@@ -375,6 +433,7 @@ export default function TwinScene({ rtl, labels }: { rtl: boolean; labels: Label
         const a = st.a0 + t * st.speed;
         tw.set(Math.cos(a) * ORBIT, Math.sin(a) * ORBIT, 0).applyEuler(orbitTilt);
         st.mesh.position.copy(tw);
+        st.mesh.rotation.y = Math.atan2(-tw.x, -tw.z); // face the twin
         beamPos.set([0, 0, 0, tw.x, tw.y, tw.z], i * 6);
         const ph = (t * 0.45 + i * 0.37) % 2;
         const u = ph < 1 ? ph : 2 - ph;

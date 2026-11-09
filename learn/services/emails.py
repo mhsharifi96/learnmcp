@@ -29,6 +29,28 @@ TEXTS = {
             "button": "Confirm email",
         },
     },
+    "approved": {
+        "fa": {
+            "subject": "دسترسی شما به «{course}» باز شد",
+            "body": (
+                "سلام {name}،\n\n"
+                "ثبت‌نام شما در کلاس «{course}» تأیید شد و درس‌ها و آزمون‌ها برایتان باز است.\n"
+                "از صفحهٔ «کلاس‌های من» لینک شخصی‌تان را بسازید و درس را با هوش مصنوعی خودتان شروع کنید.\n\n"
+                "{link}"
+            ),
+            "button": "کلاس‌های من",
+        },
+        "en": {
+            "subject": "Your access to “{course}” is open",
+            "body": (
+                "Hi {name},\n\n"
+                "Your registration for “{course}” was approved: the lessons and quizzes are open.\n"
+                "Make your personal link on the “My classes” page and start studying with your own AI.\n\n"
+                "{link}"
+            ),
+            "button": "My classes",
+        },
+    },
     "reminder": {
         "fa": {
             "subject": "{days} روز است که «{course}» را مرور نکرده‌اید",

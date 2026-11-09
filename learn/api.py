@@ -324,6 +324,7 @@ def catalog(request):
                 "lessons": c._lessons,
                 "students": c._students,
                 "joined": c.id in joined,
+                "updated": _dt(max(filter(None, [c.created_at, c.image_updated_at]))),
                 **covers.payload(c),
             }
             for c in qs
@@ -339,7 +340,8 @@ def class_info(request, code: str):
     if course is None:
         raise ApiError("No class with this code. Check it with your instructor.", 404)
     student = pages.account_student(request)
-    already = bool(student and Enrollment.objects.filter(student=student, course=course).exists())
+    mine = Enrollment.objects.filter(student=student, course=course).first() if student else None
+    already = mine is not None
     # Lesson titles (public, for listed classes only) so the join page shows what the class covers.
     # Draft lessons stay hidden.
     titles = course.lessons.published().order_by("order", "id").values_list("title", flat=True)
@@ -357,6 +359,9 @@ def class_info(request, code: str):
         "lessons": lessons,
         "linked": student is not None,
         "already_joined": already,
+        "pending": bool(mine and not mine.approved),
+        "requires_approval": course.requires_approval,
+        "quizzes": course.quizzes.published().count() if course.listed else 0,
         "student": _student_payload(student),
         **covers.payload(course),
     }
@@ -388,7 +393,11 @@ def join_class(request, code: str):
     enrollment, raw = enrollments.join(course, name=student.name, email=student.email, existing_student=student)
     pages._remember_enrollment(request, enrollment)
     pages._stash_new_token(request, enrollment.id, raw)
-    return {"enrollment_id": enrollment.id}
+    return {"enrollment_id": enrollment.id, "pending": not enrollment.approved}
+
+
+def _pending_error() -> ApiError:
+    return ApiError("Your registration is waiting for approval by the site admin.", 403)
 
 
 def _my_enrollment(request, enrollment_id: int) -> Enrollment:
@@ -403,9 +412,14 @@ def _my_enrollment(request, enrollment_id: int) -> Enrollment:
 @api()
 def connect_info(request, enrollment_id: int):
     enr = _my_enrollment(request, enrollment_id)
+    if not enr.approved:
+        # Keep the personal link hidden until approval; it is made fresh once the admin approves.
+        return {"enrollment_id": enr.id, "course": enr.course.title, "pending": True, "mcp_url": None,
+                "token_hint": "", "other_classes": 0}
     raw = pages._pop_new_token(request, enr.id)
     return {
         "enrollment_id": enr.id,
+        "pending": False,
         "course": enr.course.title,
         "mcp_url": pages.mcp_url(request, raw) if raw else None,
         "token_hint": enr.token_hint,
@@ -416,6 +430,8 @@ def connect_info(request, enrollment_id: int):
 @api(methods=("POST",))
 def regenerate(request, enrollment_id: int):
     enr = _my_enrollment(request, enrollment_id)
+    if not enr.approved:
+        raise _pending_error()
     raw = tokens.assign_new_token(enr)
     pages._stash_new_token(request, enr.id, raw)
     return {"ok": True}
@@ -437,6 +453,8 @@ def leave(request, enrollment_id: int):
 def study(request, enrollment_id: int):
     """Lessons and quizzes of one class, for the copy-a-prompt page (AI apps without MCP)."""
     enr = _my_enrollment(request, enrollment_id)
+    if not enr.approved:
+        raise _pending_error()
     data = courses.list_courses(enr)
     course = next((c for c in data["courses"] if c["course_id"] == enr.course_id), None)
     # What already reached the instructor, per lesson and quiz (newest first).
@@ -462,6 +480,8 @@ def study(request, enrollment_id: int):
 @api(methods=("POST",))
 def study_prompt(request, enrollment_id: int):
     enr = _my_enrollment(request, enrollment_id)
+    if not enr.approved:
+        raise _pending_error()
     data = _body(request)
     base = pages.public_base_url(request)
     if data.get("lesson_id"):
@@ -563,6 +583,7 @@ def my_data(request):
                 "instructor": e.course.instructor.display_name,
                 "student": {"name": e.student.name, "email": e.student.email},
                 "joined_at": _dt(e.joined_at),
+                "approved": e.approved,
                 "consent_at": _dt(e.consent_at),
                 "token_hint": e.token_hint,
                 "attempts": [_attempt_payload(a) for a in e.attempts.all()],

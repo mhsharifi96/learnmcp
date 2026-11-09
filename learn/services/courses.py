@@ -35,7 +35,7 @@ TEACHING_RULES = (
 
 
 def student_enrollments(enrollment):
-    return Enrollment.objects.filter(student_id=enrollment.student_id).select_related("course")
+    return Enrollment.objects.filter(student_id=enrollment.student_id, approved_at__isnull=False).select_related("course")
 
 
 def enrollment_for_course(enrollment, course_id: int):
@@ -50,7 +50,11 @@ def enrollment_for_course(enrollment, course_id: int):
 def get_accessible_lesson(enrollment, lesson_id: int) -> Lesson:
     lesson = (
         Lesson.objects.published().select_related("course")
-        .filter(pk=lesson_id, course__enrollments__student_id=enrollment.student_id)
+        .filter(
+            pk=lesson_id,
+            course__enrollments__student_id=enrollment.student_id,
+            course__enrollments__approved_at__isnull=False,
+        )
         .first()
     )
     if lesson is None:

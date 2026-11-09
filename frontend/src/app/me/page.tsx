@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { PendingNotice } from "@/app/join/[code]/join-view";
 import { api } from "@/lib/api";
 import { useFormatDate, useLang, useT } from "@/components/lang";
 import { VerifyNotice } from "@/components/student-auth-form";
@@ -61,6 +62,7 @@ type Enr = {
   course: string;
   instructor: string;
   joined_at: string;
+  approved?: boolean;
   consent_at: string;
   token_hint: string;
   progress: Progress;
@@ -293,38 +295,56 @@ function ClassCard({ e, onError, onLeft }: { e: Enr; onError: (s: string) => voi
   const p = e.progress;
   const statusTone = { not_started: "default", started: "info", quiz_done: "ok" } as const;
 
-  return (
-    <Card>
-      <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h2 className="font-display text-2xl text-lapis pe-2" dir="auto">
-            {e.course}
-          </h2>
-          <p className="text-sm text-quiet">
-            {t.me.instructor}: <span className="text-ink">{e.instructor}</span>
-          </p>
-        </div>
-        <div className="flex flex-col items-end gap-1">
-          <ButtonLink href={`/study/${e.id}/`}>{t.hist.continue}</ButtonLink>
-          <span className="text-sm text-quiet" dir="auto">
-            {p.next_lesson ? `${t.hist.next}: ${p.next_lesson.title}` : p.lessons_total > 0 ? t.hist.allDone : ""}
-          </span>
-        </div>
-      </div>
+  if (e.approved === false)
+    return (
+      <Card>
+        <h2 className="mb-1 font-display text-2xl text-lapis" dir="auto">
+          {e.course}
+        </h2>
+        <p className="mb-4 text-sm text-quiet">
+          {t.me.instructor}: <span className="text-ink">{e.instructor}</span> · <Chip tone="warn">{t.catalog.pending}</Chip>
+        </p>
+        <PendingNotice link={false} />
+      </Card>
+    );
 
-      <dl className="mb-5 grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <StatCard icon="book" label={t.hist.lessonsStarted} value={`${p.lessons_started}/${p.lessons_total}`} />
-        <StatCard icon="checkCircle" label={t.hist.lessonsDone} value={p.lessons_done} tone="ok" />
-        <StatCard icon="award" label={t.hist.quizzes} value={p.quizzes_done} tone="warn" />
-        <StatCard icon="target" label={t.hist.avg} value={p.average_score_percent == null ? "—" : `${p.average_score_percent}%`} />
-      </dl>
+  return (
+    <div className="space-y-4">
+      <Card>
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <div>
+            <h2 className="font-display text-2xl text-lapis pe-2" dir="auto">
+              {e.course}
+            </h2>
+            <p className="text-sm text-quiet">
+              {t.me.instructor}: <span className="text-ink">{e.instructor}</span>
+            </p>
+          </div>
+          <div className="flex flex-wrap items-center gap-2 sm:flex-col sm:items-end">
+            <ButtonLink href={`/study/${e.id}/`}>{t.hist.continue}</ButtonLink>
+            <span className="text-sm text-quiet" dir="auto">
+              {p.next_lesson ? `${t.hist.next}: ${p.next_lesson.title}` : p.lessons_total > 0 ? t.hist.allDone : ""}
+            </span>
+          </div>
+        </div>
+      </Card>
+
+      <Card>
+        <SectionTitle icon="target">{t.hist.progress}</SectionTitle>
+        <dl className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+          <StatCard icon="book" label={t.hist.lessonsStarted} value={`${p.lessons_started}/${p.lessons_total}`} />
+          <StatCard icon="checkCircle" label={t.hist.lessonsDone} value={p.lessons_done} tone="ok" />
+          <StatCard icon="award" label={t.hist.quizzes} value={p.quizzes_done} tone="warn" />
+          <StatCard icon="target" label={t.hist.avg} value={p.average_score_percent == null ? "—" : `${p.average_score_percent}%`} />
+        </dl>
+      </Card>
 
       {p.lessons.length > 0 && (
-        <>
+        <Card>
           <SectionTitle icon="book">{t.hist.lessons}</SectionTitle>
-          <ol className="mb-6 divide-y divide-[var(--line)]">
+          <ol className="space-y-2">
             {p.lessons.map((l) => (
-              <li key={l.id} className="grid grid-cols-[1fr_auto] items-center gap-x-3 gap-y-1 py-2 sm:grid-cols-[1fr_auto_10rem]">
+              <li key={l.id} className="grid grid-cols-[1fr_auto] items-center gap-x-3 gap-y-2 rounded-lg border border-line bg-mist/40 p-3 sm:grid-cols-[1fr_auto_10rem]">
                 <span className="flex min-w-0 flex-wrap items-center gap-2">
                   <span className="text-quiet">{l.order}.</span>
                   <span dir="auto">{l.title}</span>
@@ -335,13 +355,15 @@ function ClassCard({ e, onError, onLeft }: { e: Enr; onError: (s: string) => voi
               </li>
             ))}
           </ol>
-        </>
+        </Card>
       )}
 
-      <SectionTitle icon="calendar">{t.hist.history}</SectionTitle>
-      <History items={e.timeline} />
+      <Card>
+        <SectionTitle icon="calendar">{t.hist.history}</SectionTitle>
+        <History items={e.timeline} />
+      </Card>
 
-      <details className="mt-6 rounded-lg border border-line px-4 py-2">
+      <details className="rounded-xl border border-line bg-surface px-4 py-3 shadow-sm">
         <summary className="cursor-pointer py-1 font-medium text-lapis">{t.hist.settings}</summary>
         <dl className="mt-2 grid gap-x-6 gap-y-1 text-sm text-quiet sm:grid-cols-2">
           <div>
@@ -389,7 +411,7 @@ function ClassCard({ e, onError, onLeft }: { e: Enr; onError: (s: string) => voi
         </div>
         <p className="mb-2 text-xs text-quiet">{t.me.lead}</p>
       </details>
-    </Card>
+    </div>
   );
 }
 
@@ -422,45 +444,51 @@ export default function Me() {
       <Alert kind="ok">{notice}</Alert>
 
       {student ? (
-        <Card className="!py-4">
-          <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
-            <strong>{student.name}</strong>
-            <span dir="ltr" className="text-quiet">
-              {student.email}
-            </span>
-            <Chip tone={student.email_verified ? "ok" : "warn"}>
-              {student.email_verified ? t.student.verifiedChip : t.student.unverifiedChip}
-            </Chip>
-            <label className="flex items-center gap-2 text-sm" title={t.student.remindersHelp}>
-              <input
-                type="checkbox"
-                className="h-4 w-4 accent-[var(--turquoise)]"
-                checked={student.email_reminders}
-                onChange={async (ev) => {
-                  try {
-                    const r = await api<{ student: StudentAccount }>("me/settings", {
-                      method: "PATCH",
-                      body: { email_reminders: ev.target.checked },
-                    });
-                    setStudent(r.student);
-                  } catch (err) {
-                    setError(errorText(err));
-                  }
+        <Card className="!p-4 sm:!p-5">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+            <div className="min-w-0">
+              <div className="flex flex-wrap items-center gap-2">
+                <strong>{student.name}</strong>
+                <Chip tone={student.email_verified ? "ok" : "warn"}>
+                  {student.email_verified ? t.student.verifiedChip : t.student.unverifiedChip}
+                </Chip>
+              </div>
+              <span dir="ltr" className="mt-1 block break-all text-sm text-quiet">
+                {student.email}
+              </span>
+            </div>
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-2 border-t border-line pt-3 sm:border-0 sm:pt-0">
+              <label className="flex items-center gap-2 text-sm" title={t.student.remindersHelp}>
+                <input
+                  type="checkbox"
+                  className="h-4 w-4 accent-[var(--turquoise)]"
+                  checked={student.email_reminders}
+                  onChange={async (ev) => {
+                    try {
+                      const r = await api<{ student: StudentAccount }>("me/settings", {
+                        method: "PATCH",
+                        body: { email_reminders: ev.target.checked },
+                      });
+                      setStudent(r.student);
+                    } catch (err) {
+                      setError(errorText(err));
+                    }
+                  }}
+                />
+                {t.student.reminders}
+              </label>
+              <Button
+                variant="ghost"
+                className="ms-auto px-2 py-1 text-sm"
+                onClick={async () => {
+                  await api("auth/logout", { method: "POST" }).catch(() => undefined);
+                  router.push("/");
+                  router.refresh();
                 }}
-              />
-              {t.student.reminders}
-            </label>
-            <Button
-              variant="ghost"
-              className="ms-auto px-2 py-1 text-sm"
-              onClick={async () => {
-                await api("auth/logout", { method: "POST" }).catch(() => undefined);
-                router.push("/");
-                router.refresh();
-              }}
-            >
-              {t.student.logout}
-            </Button>
+              >
+                {t.student.logout}
+              </Button>
+            </div>
           </div>
           {!student.email_verified && (
             <div className="mt-3">

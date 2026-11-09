@@ -88,6 +88,28 @@ export default function Home() {
               </a>
             </div>
 
+            <div className="mt-5 grid gap-3 sm:grid-cols-2 md:hidden" aria-hidden="true">
+              <div className="hud hud-a">
+                <p className="hud-label">
+                  <span className="live-dot" /> {tw.hud.model}
+                </p>
+                <p className="mt-2 flex items-baseline gap-2">
+                  <span className="font-display text-3xl tabular-nums">{lang === "fa" ? "۲۴" : "24"}</span>
+                  <span className="text-xs text-[#8ea3c2]">{tw.hud.practising}</span>
+                </p>
+                <div className="hud-meter mt-2 flex h-5 items-end gap-[3px]">
+                  {[40, 65, 35, 80, 55, 90, 70, 45, 85, 60, 75, 50].map((h, i) => (
+                    <span key={i} style={{ height: `${h}%`, animationDelay: `${i * 0.11}s` }} />
+                  ))}
+                </div>
+              </div>
+              <div className="hud hud-c flex items-center">
+                <p className="hud-label">
+                  <Icon name="checkCircle" className="h-3.5 w-3.5 shrink-0 text-[#3fd1c7]" /> {tw.hud.report}
+                </p>
+              </div>
+            </div>
+
             <dl className="mt-10 grid max-w-md grid-cols-3 gap-4 border-t border-white/10 pt-6">
               {tw.stats.map(([n, label]) => (
                 <div key={label}>

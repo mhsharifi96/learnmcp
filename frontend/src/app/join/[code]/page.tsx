@@ -16,6 +16,8 @@ const loadClass = cache(async (code: string) => {
     instructor: c.instructor,
     listed: c.listed !== false,
     lessons: c.listed !== false && Array.isArray(c.lessons) ? c.lessons : [],
+    requires_approval: !!c.requires_approval,
+    quizzes: c.quizzes ?? 0,
     image: c.image ?? null,
     theme: c.theme ?? "general",
   } satisfies PublicClass;
@@ -37,6 +39,7 @@ export async function generateMetadata({ params }: { params: Params }): Promise<
   return {
     title: c.title,
     description,
+    keywords: [c.title, ...c.title.split(/[\s:،,–-]+/).filter((w) => w.length > 2), ...s.keywords.slice(-5)],
     alternates: { canonical: path },
     // Unlisted classes are only for people with the code: keep them out of search results.
     robots: c.listed ? undefined : { index: false, follow: false },
@@ -61,21 +64,33 @@ export default async function Page({ params }: { params: Params }) {
     courseCode: c.code,
     inLanguage: lang,
     isAccessibleForFree: true,
+    offers: { "@type": "Offer", category: "Free", price: 0, priceCurrency: "USD", availability: "https://schema.org/InStock" },
     provider: { "@type": "Organization", name: "learnmcp", sameAs: `${url}/` },
     author: { "@type": "Person", name: c.instructor },
     image: coverUrl(c),
     hasCourseInstance: {
       "@type": "CourseInstance",
       courseMode: "Online",
+      courseWorkload: `PT${Math.max(1, c.lessons.length)}H`,
       instructor: { "@type": "Person", name: c.instructor },
     },
     ...(c.lessons.length
       ? { syllabusSections: c.lessons.map((l) => ({ "@type": "Syllabus", name: l.title, position: l.order })) }
       : {}),
   };
+  const crumbs = c?.listed && {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    itemListElement: [
+      { "@type": "ListItem", position: 1, name: "learnmcp", item: `${url}/` },
+      { "@type": "ListItem", position: 2, name: SEO[lang].classesTitle, item: `${url}/classes/` },
+      { "@type": "ListItem", position: 3, name: c.title, item: `${url}/join/${c.code}/` },
+    ],
+  };
   return (
     <>
       {ld && <script type="application/ld+json" dangerouslySetInnerHTML={jsonLd(ld)} />}
+      {crumbs && <script type="application/ld+json" dangerouslySetInnerHTML={jsonLd(crumbs)} />}
       <Join initial={c} />
     </>
   );

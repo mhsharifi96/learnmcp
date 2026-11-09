@@ -131,6 +131,7 @@ class CourseAdmin(InstructorScopedMixin, admin.ModelAdmin):
         fields = ["title", "description", "listed"]
         if request.user.is_superuser:
             fields.insert(0, "instructor")
+            fields.append("requires_approval")
         if obj:
             fields += ["join_code", "invite_link", "dashboard_link"]
         return fields
@@ -362,14 +363,52 @@ class AttemptInline(ReadOnlyInline):
         return "—" if obj.score is None else f"{obj.score_percent}%"
 
 
+class ApprovalFilter(admin.SimpleListFilter):
+    title = "approval"
+    parameter_name = "approval"
+
+    def lookups(self, request, model_admin):
+        return [("pending", "Waiting for approval"), ("approved", "Approved")]
+
+    def queryset(self, request, queryset):
+        if self.value() == "pending":
+            return queryset.filter(approved_at__isnull=True)
+        if self.value() == "approved":
+            return queryset.filter(approved_at__isnull=False)
+        return queryset
+
+
 @admin.register(Enrollment)
 class EnrollmentAdmin(InstructorScopedMixin, admin.ModelAdmin):
-    list_display = ("student_name", "student_email", "course", "joined_at", "last_activity_at")
-    list_filter = (("course", admin.RelatedOnlyFieldListFilter),)
+    list_display = ("student_name", "student_email", "course", "is_approved", "joined_at", "last_activity_at")
+    list_filter = (ApprovalFilter, ("course", admin.RelatedOnlyFieldListFilter))
     search_fields = ("student__name", "student__email")
-    fields = ("student", "course", "consent_at", "joined_at", "last_activity_at", "token_hint", "token_rotated_at")
+    fields = (
+        "student", "course", "consent_at", "joined_at", "approved_at", "last_activity_at", "token_hint",
+        "token_rotated_at",
+    )
     readonly_fields = fields
     inlines = [AttemptInline, EventInline]
+    actions = ["approve_selected"]
+
+    def get_actions(self, request):
+        actions = super().get_actions(request)
+        if not request.user.is_superuser:
+            actions.pop("approve_selected", None)  # approval is the site admin's call
+        return actions
+
+    @admin.action(description="Approve selected students (open lessons and quizzes)")
+    def approve_selected(self, request, queryset):
+        from learn.services.enrollments import approve
+
+        from learn.views import public_base_url
+
+        n = approve(queryset, base_url=public_base_url(request))
+        self.message_user(request, f"{n} student(s) approved.")
+
+    @admin.display(description="Approved", boolean=True, ordering="approved_at")
+    def is_approved(self, obj):
+        return obj.approved
 
     def has_add_permission(self, request):
         return False
