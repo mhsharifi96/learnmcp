@@ -12,7 +12,7 @@ import "./globals.css";
 const body = Vazirmatn({ subsets: ["arabic", "latin"], variable: "--font-body", display: "swap" });
 
 // Google Tag Manager container.
-const GTM_ID = "GTM-5QHCRZQD";
+const GTM_ID = "GTM-ND58R3JM";
 
 // Site-wide defaults; public pages add their own title, description and canonical URL.
 export async function generateMetadata(): Promise<Metadata> {
