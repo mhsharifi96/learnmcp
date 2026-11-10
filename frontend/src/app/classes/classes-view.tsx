@@ -21,6 +21,8 @@ export type Klass = {
   theme?: string;
 };
 
+const MIN_SHOWN_STUDENTS = 10;
+
 export default function Classes({ initial = null }: { initial?: Klass[] | null }) {
   const t = useT();
   const errorText = useErrorText();
@@ -141,7 +143,8 @@ export default function Classes({ initial = null }: { initial?: Klass[] | null }
             )}
             <p className="mb-4 mt-auto flex flex-wrap gap-2 text-sm">
               <Chip>{t.catalog.lessons(c.lessons)}</Chip>
-              <Chip>{t.catalog.students(c.students)}</Chip>
+              {/* Small numbers read as "nobody joined": show a "new" badge until the class has a real crowd. */}
+              {c.students >= MIN_SHOWN_STUDENTS ? <Chip>{t.catalog.students(c.students)}</Chip> : <Chip tone="info">{t.catalog.newCourse}</Chip>}
             </p>
             {c.joined ? (
               <ButtonLink href="/me/" variant="secondary">

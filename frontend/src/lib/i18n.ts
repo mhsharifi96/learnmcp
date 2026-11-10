@@ -159,7 +159,7 @@ const en = {
     pronunciation: { label: "Pronunciation", help: "Hard sounds for Persian speakers, minimal pairs, answered by voice.", ph: "th /θ/ /ð/ and w vs v, with short sentences to repeat." },
   },
   catalog: {
-    free: "Free", locked: "Register to unlock", pending: "Waiting for approval",
+    free: "Free", newCourse: "New course", locked: "Register to unlock", pending: "Waiting for approval",
     title: "Free online courses", lead: "Free courses you can register for: English and IELTS, programming, Excel, AI, exam prep, marketing and career skills. Search by topic or filter by instructor, then study with ChatGPT, Gemini, Claude or DeepSeek.",
     search: "Search classes", instructor: "Instructor", allInstructors: "All instructors",
     lessons: (n: number) => `${n} lesson${n === 1 ? "" : "s"}`, students: (n: number) => `${n} student${n === 1 ? "" : "s"}`,
@@ -455,7 +455,7 @@ const fa: Dict = {
     pronunciation: { label: "تلفظ", help: "صداهای سخت برای فارسی‌زبان‌ها، جفت‌کلمه‌ها، با جواب صوتی.", ph: "صدای th و تفاوت w و v، با جمله‌های کوتاه برای تکرار." },
   },
   catalog: {
-    free: "رایگان", locked: "برای باز شدن ثبت‌نام کنید", pending: "در انتظار تأیید",
+    free: "رایگان", newCourse: "دورهٔ جدید", locked: "برای باز شدن ثبت‌نام کنید", pending: "در انتظار تأیید",
     title: "دوره‌های آموزش رایگان آنلاین", lead: "دوره‌های رایگان زبان انگلیسی و آیلتس، برنامه‌نویسی و پایتون، اکسل، هوش مصنوعی، کنکور، بازاریابی و مهارت‌های شغلی. موضوع را جستجو کنید، رایگان ثبت‌نام کنید و با ChatGPT، Gemini، Claude یا DeepSeek یاد بگیرید.",
     search: "جستجوی کلاس", instructor: "مدرس", allInstructors: "همهٔ مدرس‌ها",
     lessons: (n: number) => `${n} درس`, students: (n: number) => `${n} دانشجو`,
