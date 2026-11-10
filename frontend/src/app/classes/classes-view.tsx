@@ -12,6 +12,7 @@ export type Klass = {
   code: string;
   title: string;
   description: string;
+  category?: string;
   instructor: string;
   instructor_id: number;
   lessons: number;
@@ -22,6 +23,7 @@ export type Klass = {
 };
 
 const MIN_SHOWN_STUDENTS = 10;
+const CATEGORY_ORDER = ["ai", "code", "language", "office", "design", "marketing", "academic", "engineering", "finance", "career", "skills", "hobby"];
 
 export default function Classes({ initial = null }: { initial?: Klass[] | null }) {
   const t = useT();
@@ -30,6 +32,20 @@ export default function Classes({ initial = null }: { initial?: Klass[] | null }
   const [error, setError] = useState("");
   const [q, setQ] = useState("");
   const [teacher, setTeacher] = useState("");
+  const [category, setCategory] = useState("");
+
+  // Open a topic from the URL (?category=ai) so each topic has a shareable link.
+  useEffect(() => {
+    const c = new URLSearchParams(window.location.search).get("category");
+    if (c) setCategory(c);
+  }, []);
+  const pickCategory = (c: string) => {
+    setCategory(c);
+    const u = new URL(window.location.href);
+    if (c) u.searchParams.set("category", c);
+    else u.searchParams.delete("category");
+    window.history.replaceState(null, "", u);
+  };
 
   useEffect(() => {
     api<{ classes: Klass[] }>("classes")
@@ -47,14 +63,24 @@ export default function Classes({ initial = null }: { initial?: Klass[] | null }
     return [...m.entries()].sort((a, b) => a[1].name.localeCompare(b[1].name));
   }, [items]);
 
+  const categories = useMemo(() => {
+    const m = new Map<string, number>();
+    for (const c of items ?? []) if (c.category) m.set(c.category, (m.get(c.category) ?? 0) + 1);
+    return [...m.entries()].sort((a, b) => {
+      const ia = CATEGORY_ORDER.indexOf(a[0]), ib = CATEGORY_ORDER.indexOf(b[0]);
+      return (ia < 0 ? 99 : ia) - (ib < 0 ? 99 : ib);
+    });
+  }, [items]);
+
   const shown = useMemo(() => {
     const needle = q.trim().toLocaleLowerCase();
     return (items ?? []).filter(
       (c) =>
         (!teacher || String(c.instructor_id) === teacher) &&
+        (!category || c.category === category) &&
         (!needle || `${c.title} ${c.description} ${c.instructor}`.toLocaleLowerCase().includes(needle)),
     );
-  }, [items, q, teacher]);
+  }, [items, q, teacher, category]);
 
   if (error) return <Alert>{error}</Alert>;
   if (!items) return <Spinner />;
@@ -87,6 +113,19 @@ export default function Classes({ initial = null }: { initial?: Klass[] | null }
           </select>
         </label>
       </div>
+
+      {categories.length > 0 && (
+        <nav aria-label={t.catalog.allCategories} className="flex flex-wrap gap-2">
+          <button type="button" onClick={() => pickCategory("")} className={`rounded-full border px-3 py-1 text-sm ${!category ? "border-lapis bg-lapis text-white" : "border-line bg-surface hover:border-lapis"}`}>
+            {t.catalog.allCategories}
+          </button>
+          {categories.map(([key, n]) => (
+            <button key={key} type="button" onClick={() => pickCategory(key)} className={`rounded-full border px-3 py-1 text-sm ${category === key ? "border-lapis bg-lapis text-white" : "border-line bg-surface hover:border-lapis"}`}>
+              {`${t.catalog.categories[key] ?? key} (${n})`}
+            </button>
+          ))}
+        </nav>
+      )}
 
       {instructors.length > 1 && (
         <div className="flex flex-wrap gap-2">
@@ -142,6 +181,11 @@ export default function Classes({ initial = null }: { initial?: Klass[] | null }
               </p>
             )}
             <p className="mb-4 mt-auto flex flex-wrap gap-2 text-sm">
+              {c.category && t.catalog.categories[c.category] && (
+                <button type="button" onClick={() => pickCategory(c.category!)}>
+                  <Chip tone="info">{t.catalog.categories[c.category]}</Chip>
+                </button>
+              )}
               <Chip>{t.catalog.lessons(c.lessons)}</Chip>
               {/* Small numbers read as "nobody joined": show a "new" badge until the class has a real crowd. */}
               {c.students >= MIN_SHOWN_STUDENTS ? <Chip>{t.catalog.students(c.students)}</Chip> : <Chip tone="info">{t.catalog.newCourse}</Chip>}

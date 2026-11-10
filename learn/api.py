@@ -310,7 +310,7 @@ def catalog(request):
             _students=Count("enrollments", distinct=True),
             _lessons=Count("lessons", filter=Q(lessons__draft=False), distinct=True),
         )
-        .order_by("instructor__display_name", "title")
+        .order_by("-created_at", "-id")
     )
     return {
         "classes": [
@@ -319,6 +319,7 @@ def catalog(request):
                 "code": c.join_code,
                 "title": c.title,
                 "description": c.description,
+                "category": c.category,
                 "instructor": c.instructor.display_name,
                 "instructor_id": c.instructor_id,
                 "lessons": c._lessons,

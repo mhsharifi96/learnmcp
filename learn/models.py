@@ -31,6 +31,10 @@ class Course(models.Model):
     title = models.CharField(max_length=200)
     description = models.TextField(blank=True)
     join_code = models.CharField(max_length=16, unique=True, editable=False)
+    category = models.CharField(
+        max_length=20, blank=True, default="", db_index=True,
+        help_text="Catalog topic, e.g. language, code, ai, office (empty = not shown under a topic).",
+    )
     listed = models.BooleanField(
         default=True, help_text="Show this class on the public class list. Students still need to join."
     )

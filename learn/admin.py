@@ -117,7 +117,7 @@ class QuizInline(InstructorScopedMixin, admin.TabularInline):
 @admin.register(Course)
 class CourseAdmin(InstructorScopedMixin, admin.ModelAdmin):
     course_path = ""
-    list_display = ("title", "join_code", "student_count", "lesson_count", "dashboard_link", "created_at")
+    list_display = ("title", "join_code", "category", "student_count", "lesson_count", "dashboard_link", "created_at")
     search_fields = ("title",)
     readonly_fields = ("join_code", "invite_link", "dashboard_link")
     inlines = [LessonInline, QuizInline]
@@ -128,7 +128,7 @@ class CourseAdmin(InstructorScopedMixin, admin.ModelAdmin):
         )
 
     def get_fields(self, request, obj=None):
-        fields = ["title", "description", "listed"]
+        fields = ["title", "description", "category", "listed"]
         if request.user.is_superuser:
             fields.insert(0, "instructor")
             fields.append("requires_approval")

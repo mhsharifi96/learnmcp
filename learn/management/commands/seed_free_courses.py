@@ -41,9 +41,17 @@ class Command(BaseCommand):
             course, new = Course.objects.get_or_create(
                 instructor=instructor,
                 title=spec["title"],
-                defaults={"description": description(spec), "listed": True, "requires_approval": True},
+                defaults={
+                    "description": description(spec),
+                    "category": spec.get("category", ""),
+                    "listed": True,
+                    "requires_approval": True,
+                },
             )
             if not new:
+                if not course.category and spec.get("category"):
+                    course.category = spec["category"]
+                    course.save(update_fields=["category"])
                 continue
             created += 1
             Lesson.objects.bulk_create(

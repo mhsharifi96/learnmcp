@@ -161,7 +161,8 @@ const en = {
   catalog: {
     free: "Free", newCourse: "New course", locked: "Register to unlock", pending: "Waiting for approval",
     title: "Free online courses", lead: "Free courses you can register for: English and IELTS, programming, Excel, AI, exam prep, marketing and career skills. Search by topic or filter by instructor, then study with ChatGPT, Gemini, Claude or DeepSeek.",
-    search: "Search classes", instructor: "Instructor", allInstructors: "All instructors",
+    search: "Search classes", instructor: "Instructor", allInstructors: "All instructors", allCategories: "All topics",
+    categories: { ai: "AI", code: "Programming", language: "Languages", office: "Office & accounting", design: "Design & video", marketing: "Marketing & business", academic: "School & exams", engineering: "Engineering & tech", finance: "Finance & trading", career: "Career", skills: "Life skills", hobby: "Arts & hobbies" } as Record<string, string>,
     lessons: (n: number) => `${n} lesson${n === 1 ? "" : "s"}`, students: (n: number) => `${n} student${n === 1 ? "" : "s"}`,
     join: "View and register free", joined: "Joined", open: "Open", empty: "No classes match.", count: (n: number) => `${n} class${n === 1 ? "" : "es"}`,
   },
@@ -457,7 +458,8 @@ const fa: Dict = {
   catalog: {
     free: "رایگان", newCourse: "دورهٔ جدید", locked: "برای باز شدن ثبت‌نام کنید", pending: "در انتظار تأیید",
     title: "دوره‌های آموزش رایگان آنلاین", lead: "دوره‌های رایگان زبان انگلیسی و آیلتس، برنامه‌نویسی و پایتون، اکسل، هوش مصنوعی، کنکور، بازاریابی و مهارت‌های شغلی. موضوع را جستجو کنید، رایگان ثبت‌نام کنید و با ChatGPT، Gemini، Claude یا DeepSeek یاد بگیرید.",
-    search: "جستجوی کلاس", instructor: "مدرس", allInstructors: "همهٔ مدرس‌ها",
+    search: "جستجوی کلاس", instructor: "مدرس", allInstructors: "همهٔ مدرس‌ها", allCategories: "همهٔ دسته‌ها",
+    categories: { ai: "هوش مصنوعی", code: "برنامه‌نویسی", language: "زبان‌های خارجی", office: "آفیس و حسابداری", design: "طراحی و تدوین", marketing: "بازاریابی و کسب‌وکار", academic: "درسی، کنکور و آزمون", engineering: "مهندسی و فنی", finance: "مالی و سرمایه‌گذاری", career: "شغلی و مهاجرت", skills: "مهارت‌های زندگی", hobby: "هنر و سرگرمی" } as Record<string, string>,
     lessons: (n: number) => `${n} درس`, students: (n: number) => `${n} دانشجو`,
     join: "مشاهده و ثبت‌نام رایگان", joined: "عضو هستید", open: "ورود", empty: "کلاسی پیدا نشد.", count: (n: number) => `${n} کلاس`,
   },
