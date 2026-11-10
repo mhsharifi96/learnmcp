@@ -89,10 +89,10 @@ def test_seed_free_courses():
 
     call_command("seed_free_courses")
     qs = Course.objects.filter(instructor__user__username="academy")
-    assert qs.count() == len(COURSES) == 200
+    assert qs.count() == len(COURSES) == 255
     assert all("رایگان" in c.title and c.requires_approval and c.listed for c in qs)
     assert not Quiz.objects.filter(course__in=qs).exists()
     assert not Lesson.objects.filter(course__in=qs).exclude(content="", brief="").exists()
     n = Lesson.objects.count()
     call_command("seed_free_courses")
-    assert qs.count() == 200 and Lesson.objects.count() == n
+    assert qs.count() == 255 and Lesson.objects.count() == n

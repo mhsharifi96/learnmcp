@@ -1,4 +1,4 @@
-"""Create the 200 free public courses of learnmcp/management/free_courses on an academy instructor.
+"""Create the 255 free public courses of learnmcp/management/free_courses on an academy instructor.
 
 Each course is listed, needs the site admin's approval for new students, and gets its lesson
 titles only (no lesson text, no quizzes): the public page shows the syllabus as locked.
@@ -19,7 +19,7 @@ from learn.models import Course, Instructor, Lesson
 
 
 class Command(BaseCommand):
-    help = "Create 200 free public courses (description and locked syllabus) that need admin approval to join."
+    help = "Create 255 free public courses (description and locked syllabus) that need admin approval to join."
 
     def add_arguments(self, parser):
         parser.add_argument("--username", default="academy")

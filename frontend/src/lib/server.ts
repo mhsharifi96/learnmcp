@@ -60,7 +60,7 @@ export const SEO: Record<
       "مدرس درس‌ها را می‌گذارد و شما با ChatGPT، Gemini، Claude یا DeepSeek (حتی رایگان) گفتگو می‌کنید و یاد می‌گیرید. مدرس می‌بیند کجا مشکل داشتید، نه گفتگوهایتان را.",
     classesTitle: "دوره‌های آموزشی رایگان آنلاین با هوش مصنوعی",
     classesDescription:
-      "بیش از ۲۰۰ دوره آموزش رایگان آنلاین: زبان انگلیسی و آیلتس، پایتون و برنامه‌نویسی، اکسل، هوش مصنوعی، کنکور، ریاضی، بازاریابی دیجیتال و مهارت‌های شغلی. ثبت‌نام رایگان، یادگیری با ChatGPT، Gemini و Claude.",
+      "بیش از ۲۵۰ دوره آموزش رایگان آنلاین: زبان انگلیسی و آیلتس، پایتون و برنامه‌نویسی، اکسل، هوش مصنوعی، کنکور، ریاضی، بازاریابی دیجیتال و مهارت‌های شغلی. ثبت‌نام رایگان، یادگیری با ChatGPT، Gemini و Claude.",
     joinTitle: "ورود به کلاس",
     joinDescription: "کد کلاسی را که مدرس به شما داده وارد کنید و با ChatGPT، Gemini، Claude یا DeepSeek درس بخوانید.",
     notFound: "کلاس پیدا نشد",
@@ -76,7 +76,7 @@ export const SEO: Record<
       "Your teacher puts the lessons here; you learn them by chatting with ChatGPT, Gemini, Claude or DeepSeek, even the free versions. Your teacher sees where you got stuck, never your chats.",
     classesTitle: "Free online courses with an AI tutor",
     classesDescription:
-      "200+ free online courses: English and IELTS, Python and programming, Excel, AI, math, exam prep, digital marketing and career skills. Register free and study with ChatGPT, Gemini or Claude.",
+      "250+ free online courses: English and IELTS, Python and programming, Excel, AI, math, exam prep, digital marketing and career skills. Register free and study with ChatGPT, Gemini or Claude.",
     joinTitle: "Join a class",
     joinDescription: "Enter the class code your instructor gave you and study with ChatGPT, Gemini, Claude or DeepSeek.",
     notFound: "Class not found",

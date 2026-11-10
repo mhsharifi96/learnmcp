@@ -12,7 +12,7 @@ export default function robots(): MetadataRoute.Robots {
       // Private or per-student pages, the API and the MCP/prompt endpoints.
       disallow: ["/teach/", "/me/", "/study/", "/connect/", "/r/", "/s/", "/api/", "/admin/", "/verify-email/"],
     },
-    sitemap: `${url}/sitemap.xml`,
+    sitemap: [`${url}/sitemap.xml`, `${url}/sitemap-pages.xml`, `${url}/sitemap-courses.xml`],
     host: url,
   };
 }
